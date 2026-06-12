@@ -9,6 +9,7 @@ import {
 	CHAINCASHIER_USDC_CHAINS,
 	type ChainCashierChainKey,
 } from './chainCashierChains';
+import { createRunEvent, type AgentRunEvent } from './chainCashierRun';
 
 export { createInvoiceFromAgentOutput } from './chainCashier';
 
@@ -45,6 +46,7 @@ export type ChainCashierChatChunk =
 			request: ReturnType<typeof buildPaymentQuoteRequest>;
 	  }
 	| { type: 'quote'; quote: PaymentQuoteSummary; rawQuote?: unknown }
+	| { type: 'run_event'; event: AgentRunEvent }
 	| { type: 'error'; content: string }
 	| { type: 'done' };
 
@@ -173,10 +175,41 @@ export function buildMerchantChatCreatedInvoice(input: {
 			content: 'Parsing merchant invoice goal...\n',
 		},
 		{
+			type: 'run_event',
+			event: createRunEvent({
+				step: 'plan',
+				status: 'completed',
+				summary: 'GLM-5.1 parsed the merchant goal into a checkout plan.',
+				tool: 'GLM-5.1 structured generation',
+				inputSummary: input.message,
+				outputSummary: `${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}`,
+			}),
+		},
+		{
 			type: 'thinking',
 			content: `Locking merchant address, ${invoice.receiveChain} USDC target, amount, and payer-pays fee policy...\n`,
 		},
+		{
+			type: 'run_event',
+			event: createRunEvent({
+				step: 'invoice',
+				status: 'completed',
+				summary: 'Locked invoice terms: merchant address, settlement chain, token, amount, and fee policy.',
+				outputSummary: `${invoice.invoiceId}: ${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}`,
+				artifact: 'locked invoice',
+			}),
+		},
 		{ type: 'invoice', invoice },
+		{
+			type: 'run_event',
+			event: createRunEvent({
+				step: 'link',
+				status: 'completed',
+				summary: 'Generated an independent payer checkout link.',
+				outputSummary: invoice.paymentLink,
+				artifact: 'payment link',
+			}),
+		},
 		{
 			type: 'response',
 			content: [
@@ -225,10 +258,21 @@ export function buildPayerQuotePlan(input: {
 		!source ||
 		!supportedSources.some((option) => option.chainId === source.chainId)
 	) {
+		const supportedSummary = formatSourceOptions(supportedSources);
 		return [
 			{
 				type: 'response',
-				content: `我还需要知道你想从哪条支持的来源链支付。当前这张账单收 ${input.invoice.receiveChain} USDC，支持：${formatSourceOptions(supportedSources)}。`,
+				content: `我还需要知道你想从哪条支持的来源链支付。当前这张账单收 ${input.invoice.receiveChain} USDC，支持：${supportedSummary}。`,
+			},
+			{
+				type: 'run_event',
+				event: createRunEvent({
+					step: 'repair',
+					status: 'action_required',
+					summary: 'The requested source chain is missing or unsupported for this invoice target.',
+					inputSummary: input.message,
+					repairAction: `Ask payer to choose one supported source: ${supportedSummary}.`,
+				}),
 			},
 			{ type: 'done' },
 		];
@@ -246,7 +290,27 @@ export function buildPayerQuotePlan(input: {
 			type: 'thinking',
 			content: 'Reading locked merchant invoice and payer source request...\n',
 		},
+		{
+			type: 'run_event',
+			event: createRunEvent({
+				step: 'source',
+				status: 'completed',
+				summary: 'Resolved payer source chain from chat.',
+				inputSummary: input.message,
+				outputSummary: source.label,
+			}),
+		},
 		{ type: 'payer_source', source },
+		{
+			type: 'run_event',
+			event: createRunEvent({
+				step: 'quote',
+				status: 'running',
+				summary: 'Prepared LI.FI exact-toAmount quote request.',
+				tool: 'LI.FI quote/toAmount',
+				inputSummary: `${source.label} -> ${input.invoice.receiveChain} ${input.invoice.receiveToken}`,
+			}),
+		},
 		{ type: 'quote_request', source, request },
 	];
 }

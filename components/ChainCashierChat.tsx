@@ -7,10 +7,16 @@ import remarkGfm from 'remark-gfm';
 import { parseAbi } from 'viem';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
-import { AlertTriangle, CheckCircle2, CircleDashed, Copy, ExternalLink, ReceiptText, Wallet } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Download, ExternalLink, ReceiptText, Wallet } from 'lucide-react';
 import WalletButton from './WalletConnect';
 import type { Invoice, PaymentQuoteSummary, SupportPackage } from '@/lib/chainCashier';
 import type { PayerSourceOption } from '@/lib/chainCashierChat';
+import {
+	buildAgentRunLog,
+	createRunEvent,
+	type AgentRunEvent,
+	type AgentRunLog,
+} from '@/lib/chainCashierRun';
 import { splitTypewriterText } from '@/lib/chainCashierStreaming';
 
 const ChatSender = dynamic(() => import('./ChatSender'), {
@@ -65,22 +71,45 @@ type StreamPayload =
 	| { type: 'payer_source'; source: PayerSourceOption }
 	| { type: 'quote_request'; source: PayerSourceOption; request: unknown }
 	| { type: 'quote'; quote: PaymentQuoteSummary; rawQuote?: unknown }
+	| { type: 'run_event'; event: AgentRunEvent }
 	| { type: 'error'; content: string }
 	| { type: 'done' };
 
 function initialSteps(): FlowStep[] {
 	return [
 		{ key: 'parse', title: 'Merchant Goal Parsed', status: 'pending', note: 'GLM-5.1 turns merchant language into a locked invoice.' },
-		{ key: 'invoice', title: 'Invoice Created', status: 'pending', note: 'Merchant address, Base USDC target, amount, and fee policy are locked.' },
+		{ key: 'invoice', title: 'Invoice Created', status: 'pending', note: 'Merchant address, settlement chain, amount, and fee policy are locked.' },
 		{ key: 'link', title: 'Payment Link Generated', status: 'pending', note: 'The payer opens an independent checkout chat from this link.' },
 		{ key: 'source', title: 'Payer Source Selected', status: 'pending', note: 'Payer chooses the source chain and token in chat.' },
-		{ key: 'quote', title: 'LI.FI Quote Requested', status: 'pending', note: 'The app asks LI.FI for a toAmount quote so merchant receives exact Base USDC.' },
+		{ key: 'quote', title: 'LI.FI Quote Requested', status: 'pending', note: 'The app asks LI.FI for a toAmount quote so merchant receives the exact target USDC.' },
+		{ key: 'validate', title: 'Quote Safety Validated', status: 'pending', note: 'Agent checks target address, chain, token, and amount before wallet execution.' },
 		{ key: 'explain', title: 'Fee & Risk Explained', status: 'pending', note: 'Agent explains payer cost, fee policy, and wallet confirmation boundary.' },
 		{ key: 'wallet', title: 'Wallet Confirmation Required', status: 'pending', note: 'Funds move only after payer signs in their wallet.' },
 		{ key: 'submitted', title: 'Payment Submitted', status: 'pending', note: 'The source transaction hash is saved to the invoice.' },
 		{ key: 'status', title: 'LI.FI Status Tracking', status: 'pending', note: 'The app polls LI.FI status until paid, failed, or refunded.' },
 		{ key: 'receipt', title: 'Receipt Generated', status: 'pending', note: 'Receipt JSON and support package are generated from the evidence.' },
 	];
+}
+
+function flowKeyForRunEvent(event: AgentRunEvent): string {
+	return event.step === 'plan' ? 'parse' : event.step;
+}
+
+function flowStatusForRunEvent(event: AgentRunEvent): FlowStep['status'] {
+	if (event.status === 'completed') return 'done';
+	if (event.status === 'failed') return 'failed';
+	if (event.status === 'running') return 'running';
+	if (event.status === 'action_required') return 'failed';
+	return 'pending';
+}
+
+function updateStepFromRunEvent(steps: FlowStep[], event: AgentRunEvent): FlowStep[] {
+	return updateStep(
+		steps,
+		flowKeyForRunEvent(event),
+		flowStatusForRunEvent(event),
+		event.outputSummary ?? event.repairAction ?? event.summary,
+	);
 }
 
 function updateStep(
@@ -208,27 +237,78 @@ function StatusIcon({ status }: { status: FlowStep['status'] }) {
 	);
 }
 
-function FlowRecorder({ steps }: { steps: FlowStep[] }) {
+function FlowRecorder({
+	steps,
+	events,
+	runLog,
+	onExport,
+}: {
+	steps: FlowStep[];
+	events: AgentRunEvent[];
+	runLog: AgentRunLog;
+	onExport: () => void;
+}) {
 	return (
 		<aside className='rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-auto'>
-			<div className='text-sm font-semibold text-slate-700'>Payment Flow Recorder</div>
+			<div className='flex items-center justify-between gap-3'>
+				<div>
+					<div className='text-sm font-semibold text-slate-700'>Agent Run Timeline</div>
+					<div className='mt-1 text-xs text-slate-500'>{events.length} recorded events</div>
+				</div>
+				<button
+					type='button'
+					onClick={onExport}
+					disabled={events.length === 0}
+					className='inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50'
+				>
+					<Download className='h-3 w-3' />
+					Run Log
+				</button>
+			</div>
 			<div className='mt-3 space-y-2'>
 				{steps.map((step) => (
-					<div
+					<details
 						key={step.key}
-						className='grid grid-cols-[auto_1fr] gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2'
+						className='rounded-md border border-slate-200 bg-slate-50 px-3 py-2'
 					>
-						<StatusIcon status={step.status} />
-						<div>
-							<div className='text-sm font-medium'>{step.title}</div>
-							<div className='mt-1 text-xs leading-5 text-slate-600'>{step.note}</div>
+						<summary className='grid cursor-pointer grid-cols-[auto_1fr] gap-2'>
+							<StatusIcon status={step.status} />
+							<div>
+								<div className='text-sm font-medium'>{step.title}</div>
+								<div className='mt-1 text-xs leading-5 text-slate-600'>{step.note}</div>
+							</div>
+						</summary>
+						<div className='mt-3 space-y-2 pl-6 text-xs leading-5 text-slate-600'>
+							{events.filter((event) => flowKeyForRunEvent(event) === step.key).length ? (
+								events
+									.filter((event) => flowKeyForRunEvent(event) === step.key)
+									.map((event) => (
+										<div key={event.id} className='rounded-md border border-slate-200 bg-white p-2'>
+											<div className='font-medium text-slate-800'>{event.summary}</div>
+											{event.tool ? <div>Tool: {event.tool}</div> : null}
+											{event.inputSummary ? <div>Input: {event.inputSummary}</div> : null}
+											{event.outputSummary ? <div>Output: {event.outputSummary}</div> : null}
+											{event.validation?.length ? <div>Validation: {event.validation.join(' | ')}</div> : null}
+											{event.repairAction ? <div>Repair: {event.repairAction}</div> : null}
+											{event.artifact ? <div>Artifact: {event.artifact}</div> : null}
+										</div>
+									))
+							) : (
+								<div>No evidence recorded yet.</div>
+							)}
 						</div>
-					</div>
+					</details>
 				))}
 			</div>
 			<div className='mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900'>
 				Agent plans. User signs. Wallet executes. LI.FI routes. App tracks. Receipt proves.
 			</div>
+			{runLog.toolCalls.length ? (
+				<div className='mt-3 rounded-md border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600'>
+					<div className='font-semibold text-slate-800'>Recorded tools</div>
+					<div>{runLog.toolCalls.join(' | ')}</div>
+				</div>
+			) : null}
 		</aside>
 	);
 }
@@ -258,6 +338,7 @@ export default function ChainCashierChat({
 	const [invoice, setInvoice] = useState<Invoice | null>(null);
 	const [source, setSource] = useState<PayerSourceOption | null>(null);
 	const [steps, setSteps] = useState<FlowStep[]>(initialSteps);
+	const [runEvents, setRunEvents] = useState<AgentRunEvent[]>([]);
 	const [busy, setBusy] = useState(false);
 	const [paying, setPaying] = useState(false);
 	const [sourceTxHash, setSourceTxHash] = useState<string | null>(null);
@@ -273,9 +354,38 @@ export default function ChainCashierChat({
 	const title = role === 'merchant' ? 'Merchant Chat' : 'Payer Checkout Chat';
 	const subtitle =
 		role === 'merchant'
-			? 'Ask the agent to create a locked Base USDC invoice.'
+			? 'Ask the agent to create a locked Base or Arbitrum USDC invoice.'
 			: 'Tell the agent which source chain you want to pay from.';
 	const starter = useMemo(() => initialPrompt(role), [role]);
+	const runLog = useMemo(
+		() =>
+			buildAgentRunLog({
+				runId: invoice?.invoiceId ?? `run-${role}`,
+				userGoal: invoice
+					? `Receive ${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}`
+					: starter,
+				events: runEvents,
+			}),
+		[invoice, role, runEvents, starter],
+	);
+
+	const recordRunEvent = useCallback((event: AgentRunEvent) => {
+		setRunEvents((current) => [...current, event]);
+		setSteps((current) => updateStepFromRunEvent(current, event));
+	}, []);
+
+	const exportRunLog = useCallback(() => {
+		if (runEvents.length === 0) return;
+		const blob = new Blob([JSON.stringify(runLog, null, 2)], {
+			type: 'application/json',
+		});
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = `${runLog.runId}-chaincashier-run-log.json`;
+		anchor.click();
+		URL.revokeObjectURL(url);
+	}, [runEvents.length, runLog]);
 
 	useEffect(() => {
 		if (role !== 'payer' || !initialInvoiceId) return;
@@ -462,6 +572,27 @@ export default function ChainCashierChat({
 			saveInvoiceToBrowser(payload.invoice);
 			if (payload.invoice?.receipt || payload.invoice?.status === 'FAILED') {
 				window.clearInterval(timer);
+				recordRunEvent(
+					createRunEvent({
+						step: 'status',
+						status: payload.invoice.receipt ? 'completed' : 'failed',
+						summary: payload.invoice.receipt
+							? 'LI.FI reported the route as completed.'
+							: 'LI.FI reported failed or refunded status.',
+						tool: 'LI.FI status',
+						outputSummary: payload.invoice.lifiStatus ?? payload.invoice.status,
+					}),
+				);
+				if (payload.invoice.receipt) {
+					recordRunEvent(
+						createRunEvent({
+							step: 'receipt',
+							status: 'completed',
+							summary: 'Receipt was generated from completed payment evidence.',
+							artifact: 'receipt',
+						}),
+					);
+				}
 				const nextId = `ai-${++messageIdRef.current}`;
 				setMessages((current) => [
 					...current,
@@ -469,8 +600,8 @@ export default function ChainCashierChat({
 						id: nextId,
 						role: 'assistant',
 						content: payload.invoice.receipt
-							? '支付状态已完成，我已经生成 receipt。'
-							: 'LI.FI 返回了失败或退款状态，我生成了当前证据包，方便排查。',
+							? 'Payment completed. I generated the receipt.'
+							: 'LI.FI returned a failed or refunded status. I recorded the current evidence for troubleshooting.',
 						invoice: payload.invoice,
 						receipt: payload.invoice.receipt,
 					},
@@ -488,8 +619,7 @@ export default function ChainCashierChat({
 			}
 		}, 7000);
 		return () => window.clearInterval(timer);
-	}, [invoice?.invoiceId, sourceTxHash]);
-
+	}, [invoice?.invoiceId, recordRunEvent, sourceTxHash]);
 	async function sendMessage(raw: string) {
 		const text = raw.trim();
 		if (!text || busy) return;
@@ -519,6 +649,9 @@ export default function ChainCashierChat({
 		deferredPatchesRef.current.delete(aiId);
 		setInput('');
 		setBusy(true);
+		if (role === 'merchant') {
+			setRunEvents([]);
+		}
 		setSteps((current) =>
 			role === 'merchant'
 				? updateStep(initialSteps(), 'parse', 'running')
@@ -571,7 +704,7 @@ export default function ChainCashierChat({
 									updateStep(current, 'parse', 'done', 'Invoice terms were extracted.'),
 									'invoice',
 									'done',
-									`${payload.invoice.receiveAmount} USDC on Base is locked.`,
+									`${payload.invoice.receiveAmount} ${payload.invoice.receiveToken} on ${payload.invoice.receiveChain} is locked.`,
 								),
 								'link',
 								'done',
@@ -603,6 +736,9 @@ export default function ChainCashierChat({
 								'Payer covers cross-chain cost and confirms only in wallet.',
 							),
 						);
+					}
+					if (payload.type === 'run_event') {
+						recordRunEvent(payload.event);
 					}
 					if (payload.type === 'error') {
 						enqueueAssistantText(aiId, 'content', payload.content);
@@ -636,6 +772,15 @@ export default function ChainCashierChat({
 
 		setPaying(true);
 		setSteps((current) => updateStep(current, 'wallet', 'running'));
+		recordRunEvent(
+			createRunEvent({
+				step: 'wallet',
+				status: 'running',
+				summary: 'Prepared wallet transaction request for user confirmation.',
+				tool: 'Wallet transaction request',
+				inputSummary: targetQuote.routeSummary,
+			}),
+		);
 		try {
 			if (chainId !== source.chainId) {
 				await switchChainAsync({ chainId: source.chainId });
@@ -659,6 +804,15 @@ export default function ChainCashierChat({
 				chain: undefined,
 			});
 			setSourceTxHash(hash);
+			recordRunEvent(
+				createRunEvent({
+					step: 'wallet',
+					status: 'completed',
+					summary: 'User confirmed the transaction in their wallet.',
+					tool: 'Wallet transaction request',
+					outputSummary: hash,
+				}),
+			);
 			const submit = await fetch('/api/payments/submit', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
@@ -685,16 +839,34 @@ export default function ChainCashierChat({
 					'running',
 				),
 			);
+			recordRunEvent(
+				createRunEvent({
+					step: 'status',
+					status: 'running',
+					summary: 'Started LI.FI status tracking for the submitted source transaction.',
+					tool: 'LI.FI status',
+					inputSummary: hash,
+				}),
+			);
 			setMessages((current) => [
 				...current,
 				{
 					id: `ai-${++messageIdRef.current}`,
 					role: 'assistant',
-					content: `钱包交易已提交，sourceTxHash：\`${hash}\`\n\n我会继续轮询 LI.FI status，完成后生成 receipt。`,
+					content: `Wallet transaction submitted. sourceTxHash: \`${hash}\`\n\nI will keep polling LI.FI status and generate a receipt when it completes.`,
 				},
 			]);
 		} catch (caught) {
-			const message = caught instanceof Error ? caught.message : '钱包交易失败。';
+			const message = caught instanceof Error ? caught.message : 'Wallet transaction failed.';
+			recordRunEvent(
+				createRunEvent({
+					step: 'repair',
+					status: 'action_required',
+					summary: 'Wallet execution failed or was rejected before funds moved.',
+					outputSummary: message,
+					repairAction: 'Ask the user to inspect wallet state, switch chain, or retry from a fresh quote.',
+				}),
+			);
 			setSteps((current) => updateStep(current, 'wallet', 'failed', message));
 			setMessages((current) => [
 				...current,
@@ -716,13 +888,22 @@ export default function ChainCashierChat({
 		if (payload.success) {
 			setInvoice(payload.invoice);
 			saveInvoiceToBrowser(payload.invoice);
+			recordRunEvent(
+				createRunEvent({
+					step: 'receipt',
+					status: 'completed',
+					summary: 'Generated receipt and support package from current invoice evidence.',
+					tool: 'Receipt/support package generator',
+					artifact: 'receipt/support package',
+				}),
+			);
 			setSteps((current) => updateStep(current, 'receipt', 'done', 'Receipt and support package are available.'));
 			setMessages((current) => [
 				...current,
 				{
 					id: `ai-${++messageIdRef.current}`,
 					role: 'assistant',
-					content: '我已基于当前 invoice evidence 生成 receipt 和 support package。',
+					content: 'I generated the receipt and support package from the current invoice evidence.',
 					receipt: payload.receipt,
 					supportPackage: payload.supportPackage,
 				},
@@ -815,7 +996,7 @@ export default function ChainCashierChat({
 					<div className='border-t border-slate-200 bg-white/90 px-4 py-4 sm:px-5'>
 						{role === 'payer' && invoice ? (
 							<div className='mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-								<span>Invoice: {invoice.invoiceId} | Merchant receives {invoice.receiveAmount} USDC on Base</span>
+								<span>Invoice: {invoice.invoiceId} | Merchant receives {invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</span>
 								<button
 									type='button'
 									onClick={generateReceiptPackage}
@@ -845,7 +1026,12 @@ export default function ChainCashierChat({
 					</div>
 				</section>
 
-				<FlowRecorder steps={steps} />
+				<FlowRecorder
+					steps={steps}
+					events={runEvents}
+					runLog={runLog}
+					onExport={exportRunLog}
+				/>
 			</div>
 		</main>
 	);

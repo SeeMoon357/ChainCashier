@@ -14,6 +14,7 @@ import {
 	summarizePaymentQuote,
 	type Invoice,
 } from '@/lib/chainCashier';
+import { createRunEvent } from '@/lib/chainCashierRun';
 import { getAgentConfig } from '@/lib/agentConfig';
 import { getModelFromConfig } from '@/lib/agentClient';
 import { createLifiClient } from '@/lib/lifiClient';
@@ -190,6 +191,19 @@ export async function POST(request: NextRequest) {
 						quoteRequestChunk.request,
 					);
 					if (!quoteResult.success) {
+						send({
+							type: 'run_event',
+							event: createRunEvent({
+								step: 'repair',
+								status: 'action_required',
+								summary: 'LI.FI quote request failed before wallet execution.',
+								tool: 'LI.FI quote/toAmount',
+								inputSummary: `${quoteRequestChunk.source.label} -> ${invoice.receiveChain} ${invoice.receiveToken}`,
+								outputSummary: quoteResult.error,
+								repairAction:
+									'Ask payer to retry later or choose another supported source chain when available.',
+							}),
+						});
 						send({ type: 'error', content: quoteResult.error });
 						send({ type: 'done' });
 						return;
@@ -200,6 +214,29 @@ export async function POST(request: NextRequest) {
 						sourceChainId: quoteRequestChunk.source.chainId,
 						sourceTokenAddress: quoteRequestChunk.source.tokenAddress,
 						rawQuote: quoteResult.data,
+					});
+					send({
+						type: 'run_event',
+						event: createRunEvent({
+							step: 'quote',
+							status: 'completed',
+							summary: 'LI.FI returned an exact-toAmount quote.',
+							tool: 'LI.FI quote/toAmount',
+							outputSummary: quote.routeSummary,
+						}),
+					});
+					send({
+						type: 'run_event',
+						event: createRunEvent({
+							step: 'validate',
+							status: 'completed',
+							summary: 'Quote passed locked invoice safety checks.',
+							validation: [
+								'target address matched merchant address',
+								`target chain matched ${invoice.receiveChain}`,
+								`target token matched ${invoice.receiveToken}`,
+							],
+						}),
 					});
 					const updatedInvoice = {
 						...invoice,

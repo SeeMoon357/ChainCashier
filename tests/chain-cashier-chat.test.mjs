@@ -15,13 +15,19 @@ test('buildMerchantChatCreatedInvoice returns streamed chunks with invoice and p
 	});
 
 	assert.equal(chunks[0].type, 'thinking');
-	assert.equal(chunks[1].type, 'thinking');
-	assert.equal(chunks[2].type, 'invoice');
-	assert.equal(chunks[2].invoice.invoiceId, 'INV-1750000000000');
-	assert.equal(chunks[2].invoice.paymentLink, 'http://localhost:3000/pay/INV-1750000000000');
-	assert.equal(chunks[3].type, 'response');
-	assert.match(chunks[3].content, /20 USDC on Base/);
-	assert.match(chunks[3].content, /Payment link/);
+	assert.equal(chunks[1].type, 'run_event');
+	assert.equal(chunks[1].event.tool, 'GLM-5.1 structured generation');
+	assert.equal(chunks[2].type, 'thinking');
+	assert.equal(chunks[3].type, 'run_event');
+	assert.equal(chunks[3].event.step, 'invoice');
+	assert.equal(chunks[4].type, 'invoice');
+	assert.equal(chunks[4].invoice.invoiceId, 'INV-1750000000000');
+	assert.equal(chunks[4].invoice.paymentLink, 'http://localhost:3000/pay/INV-1750000000000');
+	assert.equal(chunks[5].type, 'run_event');
+	assert.equal(chunks[5].event.artifact, 'payment link');
+	assert.equal(chunks[6].type, 'response');
+	assert.match(chunks[6].content, /20 USDC on Base/);
+	assert.match(chunks[6].content, /Payment link/);
 });
 
 test('buildMerchantChatCreatedInvoice creates Arbitrum invoices when requested', async () => {
@@ -36,10 +42,13 @@ test('buildMerchantChatCreatedInvoice creates Arbitrum invoices when requested',
 		now: 1,
 	});
 
-	assert.equal(chunks[2].type, 'invoice');
-	assert.equal(chunks[2].invoice.receiveChain, 'Arbitrum');
-	assert.equal(chunks[2].invoice.receiveChainId, 42161);
-	assert.match(chunks[3].content, /20 USDC on Arbitrum/);
+	const invoiceChunk = chunks.find((chunk) => chunk.type === 'invoice');
+	const responseChunk = chunks.find((chunk) => chunk.type === 'response');
+	assert.equal(invoiceChunk?.type, 'invoice');
+	assert.equal(invoiceChunk.invoice.receiveChain, 'Arbitrum');
+	assert.equal(invoiceChunk.invoice.receiveChainId, 42161);
+	assert.equal(responseChunk?.type, 'response');
+	assert.match(responseChunk.content, /20 USDC on Arbitrum/);
 });
 
 test('resolveMerchantRequest routes identity questions away from invoice creation', async () => {
@@ -120,11 +129,15 @@ test('buildPayerQuotePlan emits source selection and quote request chunks', asyn
 	});
 
 	assert.equal(chunks[0].type, 'thinking');
-	assert.equal(chunks[1].type, 'payer_source');
-	assert.equal(chunks[1].source.chainId, 42161);
-	assert.equal(chunks[2].type, 'quote_request');
-	assert.equal(chunks[2].request.toChain, 8453);
-	assert.equal(chunks[2].request.toAddress, invoice.merchantAddress);
+	assert.equal(chunks[1].type, 'run_event');
+	assert.equal(chunks[1].event.step, 'source');
+	assert.equal(chunks[2].type, 'payer_source');
+	assert.equal(chunks[2].source.chainId, 42161);
+	assert.equal(chunks[3].type, 'run_event');
+	assert.equal(chunks[3].event.tool, 'LI.FI quote/toAmount');
+	assert.equal(chunks[4].type, 'quote_request');
+	assert.equal(chunks[4].request.toChain, 8453);
+	assert.equal(chunks[4].request.toAddress, invoice.merchantAddress);
 });
 
 test('buildPayerQuotePlan supports Base source for Arbitrum invoices', async () => {
@@ -149,11 +162,13 @@ test('buildPayerQuotePlan supports Base source for Arbitrum invoices', async () 
 		payerAddress: '0x3333333333333333333333333333333333333333',
 	});
 
-	assert.equal(chunks[1].type, 'payer_source');
-	assert.equal(chunks[1].source.chainId, 8453);
-	assert.equal(chunks[2].type, 'quote_request');
-	assert.equal(chunks[2].request.fromChain, 8453);
-	assert.equal(chunks[2].request.toChain, 42161);
+	const sourceChunk = chunks.find((chunk) => chunk.type === 'payer_source');
+	const quoteRequestChunk = chunks.find((chunk) => chunk.type === 'quote_request');
+	assert.equal(sourceChunk?.type, 'payer_source');
+	assert.equal(sourceChunk.source.chainId, 8453);
+	assert.equal(quoteRequestChunk?.type, 'quote_request');
+	assert.equal(quoteRequestChunk.request.fromChain, 8453);
+	assert.equal(quoteRequestChunk.request.toChain, 42161);
 });
 
 test('buildPayerQuotePlan filters unsupported sources for the invoice target', async () => {
@@ -181,4 +196,7 @@ test('buildPayerQuotePlan filters unsupported sources for the invoice target', a
 	assert.equal(chunks[0].type, 'response');
 	assert.match(chunks[0].content, /Base USDC/);
 	assert.doesNotMatch(chunks[0].content, /Optimism USDC/);
+	assert.equal(chunks[1].type, 'run_event');
+	assert.equal(chunks[1].event.step, 'repair');
+	assert.equal(chunks[1].event.status, 'action_required');
 });
