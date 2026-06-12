@@ -13,6 +13,7 @@
 # testing
 /coverage
 /.codex-test-tmp/
+/.chaincashier-data/
 
 # next.js
 /.next/

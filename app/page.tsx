@@ -1,6 +1,5 @@
-import ChainCashierDemo from '@/components/ChainCashierDemo';
+import ChainCashierChat from '@/components/ChainCashierChat';
 
 export default function Home() {
-	return <ChainCashierDemo />;
+	return <ChainCashierChat role='merchant' />;
 }
-

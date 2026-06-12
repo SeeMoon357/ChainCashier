@@ -1,4 +1,4 @@
-import ChainCashierDemo from '@/components/ChainCashierDemo';
+import ChainCashierChat from '@/components/ChainCashierChat';
 
 type PayPageProps = {
 	params: Promise<{ invoiceId: string }>;
@@ -6,6 +6,10 @@ type PayPageProps = {
 
 export default async function PayPage({ params }: PayPageProps) {
 	const { invoiceId } = await params;
-	return <ChainCashierDemo initialInvoiceId={invoiceId} />;
+	return (
+		<ChainCashierChat
+			role='payer'
+			initialInvoiceId={invoiceId}
+		/>
+	);
 }
-

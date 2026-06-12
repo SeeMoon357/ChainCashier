@@ -2,7 +2,7 @@
 
 AI cross-chain checkout agent for PayFi merchants.
 
-ChainCashier lets a merchant create a Base USDC invoice in natural language. A payer can pay from another supported chain, while the agent plans the workflow, requests a LI.FI `quote/toAmount`, explains costs and safety boundaries, prepares wallet transactions, tracks LI.FI status, and generates a receipt plus support package.
+ChainCashier lets a merchant create a Base USDC invoice through a ChatGPT-style agent chat. The generated payment link opens a separate payer chat, where the payer can say which source chain they want to pay from. The agent plans the workflow, requests a LI.FI `quote/toAmount`, explains costs and safety boundaries, prepares wallet transactions, tracks LI.FI status, and generates a receipt plus support package.
 
 ## Hackathon Fit
 
@@ -10,20 +10,21 @@ This project targets the Z.AI Web3 x Long-Horizon Task track.
 
 - GLM-5.1 drives the checkout planning agent.
 - The product is a multi-step Web3 workflow, not a one-shot chatbot.
-- The demo shows task decomposition, tool calls, wallet confirmation, LI.FI quote/status tracking, and final receipt generation.
+- The demo shows task decomposition, streaming reasoning/tool traces, tool calls, wallet confirmation, LI.FI quote/status tracking, and final receipt generation.
 - The agent never signs or custodies funds. User wallets execute transactions.
 
 ## Core Flow
 
-1. Merchant asks: `Create an invoice to receive 20 USDC on Base for a Web3 workshop ticket.`
-2. GLM-5.1 parses the request into a locked invoice.
+1. Merchant opens `/` and chats: `Create an invoice to receive 20 USDC on Base for a Web3 workshop ticket.`
+2. GLM-5.1 parses the request into a locked invoice and streams the reasoning/tool trace.
 3. ChainCashier generates an invoice ID and `/pay/[invoiceId]` payment link.
-4. Payer chooses a source asset such as Arbitrum USDC.
-5. The app calls LI.FI `quote/toAmount` so the merchant receives the exact Base USDC amount.
-6. The UI explains payer estimated cost, fees, slippage boundary, and wallet confirmation.
-7. Payer approves USDC if required and submits the LI.FI route transaction.
-8. The app saves `sourceTxHash` and polls LI.FI status.
-9. When LI.FI reports completion, ChainCashier generates a receipt JSON and support package.
+4. Payer opens the payment link in a separate browser, wallet, or account.
+5. Payer chats: `I want to pay with USDC on Arbitrum.`
+6. The app calls LI.FI `quote/toAmount` so the merchant receives the exact Base USDC amount.
+7. The chat explains payer estimated cost, fees, slippage boundary, and wallet confirmation.
+8. Payer approves USDC if required and submits the LI.FI route transaction.
+9. The app saves `sourceTxHash` and polls LI.FI status.
+10. When LI.FI reports completion, ChainCashier generates a receipt JSON and support package.
 
 ## Tech Stack
 
@@ -31,7 +32,7 @@ This project targets the Z.AI Web3 x Long-Horizon Task track.
 - RainbowKit + Wagmi + Viem for multi-wallet connection and wallet execution
 - Z.AI GLM-5.1 through an OpenAI-compatible provider
 - LI.FI `quote/toAmount` and `status`
-- In-memory invoice store for local hackathon demo
+- Local JSON invoice store for local hackathon demo
 
 ## Environment
 
@@ -62,16 +63,17 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Use a small real mainnet amount only.
 
-1. Connect a merchant wallet or paste a merchant address.
-2. Create an invoice for `20 USDC on Base`.
-3. Connect the payer wallet.
-4. Select `Arbitrum USDC` as the payer source asset.
-5. Request a LI.FI quote.
-6. Review payer estimated cost and merchant locked receiving terms.
-7. Click `Approve & Pay With Wallet`.
-8. Confirm approval if the wallet asks.
-9. Confirm the route transaction.
-10. Wait for LI.FI status polling to generate the receipt.
+1. Open `/` with the merchant wallet connected.
+2. Send: `Create an invoice to receive 20 USDC on Base for a Web3 workshop ticket.`
+3. Copy the generated `/pay/[invoiceId]` link.
+4. Open that link in another browser profile, incognito window, phone wallet browser, or after switching wallet account.
+5. Connect the payer wallet.
+6. Send: `I want to pay with USDC on Arbitrum.`
+7. Review the streamed reasoning/tool trace and LI.FI quote card.
+8. Click `Approve & Pay With Wallet`.
+9. Confirm approval if the wallet asks.
+10. Confirm the route transaction.
+11. Wait for LI.FI status polling to generate the receipt.
 
 ## Safety Boundaries
 
@@ -86,11 +88,14 @@ Use a small real mainnet amount only.
 
 ## Important Files
 
-- `components/ChainCashierDemo.tsx`: main merchant/payer/recorder demo UI.
+- `components/ChainCashierChat.tsx`: ChatGPT-style merchant and payer chat UI.
 - `lib/chainCashier.ts`: invoice model, quote request builder, quote safety validation, receipt/support package logic.
+- `lib/chainCashierChat.ts`: chat stream planning helpers and payer source parsing.
+- `lib/chainCashierStore.ts`: local JSON invoice store for separated merchant/payer sessions.
 - `lib/agentConfig.ts` and `lib/agentClient.ts`: GLM-5.1 / Z.AI model configuration.
 - `lib/lifiClient.ts`: LI.FI quote/status client.
-- `app/api/chaincashier/agent/route.ts`: GLM-5.1 checkout planning endpoint.
+- `app/api/chaincashier/chat/route.ts`: SSE streaming chat endpoint.
+- `app/api/chaincashier/agent/route.ts`: structured invoice planning endpoint.
 - `app/api/payments/quote/route.ts`: LI.FI `quote/toAmount` endpoint wrapper.
 - `app/api/payments/status/route.ts`: LI.FI status tracking endpoint.
 
@@ -105,4 +110,3 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
-
