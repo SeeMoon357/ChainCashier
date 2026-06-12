@@ -26,7 +26,7 @@ const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID;
 
 export const wagmiConfig = projectId
 	? getDefaultConfig({
-			appName: 'IntentLens',
+			appName: 'ChainCashier',
 			projectId,
 			chains,
 			ssr: true,

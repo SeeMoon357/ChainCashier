@@ -1,83 +1,108 @@
-<p align="right">
-  English | <a href="./README.zh-CN.md">简体中文</a>
-</p>
+# ChainCashier
 
-# IntentLens
+AI cross-chain checkout agent for PayFi merchants.
 
-IntentLens is a LI.FI Intents builder education demo. It turns a natural-language USDC transfer goal into a mainnet LI.FI Intents quote attempt, then renders the result as a step-by-step flight recorder.
+ChainCashier lets a merchant create a Base USDC invoice in natural language. A payer can pay from another supported chain, while the agent plans the workflow, requests a LI.FI `quote/toAmount`, explains costs and safety boundaries, prepares wallet transactions, tracks LI.FI status, and generates a receipt plus support package.
 
-The MVP focuses on one canonical route:
+## Hackathon Fit
 
-```text
-Base USDC -> Arbitrum USDC
+This project targets the Z.AI Web3 x Long-Horizon Task track.
+
+- GLM-5.1 drives the checkout planning agent.
+- The product is a multi-step Web3 workflow, not a one-shot chatbot.
+- The demo shows task decomposition, tool calls, wallet confirmation, LI.FI quote/status tracking, and final receipt generation.
+- The agent never signs or custodies funds. User wallets execute transactions.
+
+## Core Flow
+
+1. Merchant asks: `Create an invoice to receive 20 USDC on Base for a Web3 workshop ticket.`
+2. GLM-5.1 parses the request into a locked invoice.
+3. ChainCashier generates an invoice ID and `/pay/[invoiceId]` payment link.
+4. Payer chooses a source asset such as Arbitrum USDC.
+5. The app calls LI.FI `quote/toAmount` so the merchant receives the exact Base USDC amount.
+6. The UI explains payer estimated cost, fees, slippage boundary, and wallet confirmation.
+7. Payer approves USDC if required and submits the LI.FI route transaction.
+8. The app saves `sourceTxHash` and polls LI.FI status.
+9. When LI.FI reports completion, ChainCashier generates a receipt JSON and support package.
+
+## Tech Stack
+
+- Next.js 16 / React 19 / TypeScript
+- RainbowKit + Wagmi + Viem for multi-wallet connection and wallet execution
+- Z.AI GLM-5.1 through an OpenAI-compatible provider
+- LI.FI `quote/toAmount` and `status`
+- In-memory invoice store for local hackathon demo
+
+## Environment
+
+Copy `.env.local.example` to `.env.local` and fill:
+
+```bash
+ZAI_API_KEY=
+ZAI_BASE_URL=https://api.z.ai/api/paas/v4
+CHECKOUT_AGENT_MODEL=zai/glm-5.1
+
+LIFI_API_KEY=
+
+NEXT_PUBLIC_WC_PROJECT_ID=
 ```
 
-This is not a solver implementation. IntentLens is an integrator-side demo: it builds the user intent, asks LI.FI Intents for a real mainnet solver quote/order preview, and explains what happened without pretending funds moved unless a wallet signature actually happens.
+`NEXT_PUBLIC_WC_PROJECT_ID` is required for RainbowKit to show full multi-brand wallet options through WalletConnect. Without it, Wagmi falls back to injected browser wallets.
 
-## What It Shows
-
-- Natural-language goal parsing
-- Mainnet LI.FI Intents quote/order-preview wiring
-- A Flight Recorder for parse, intent build, solver quote, order preview, delivery, and settlement concepts
-- A comparison with the classic LI.FI route-based flow from the original project
-- Wallet safety boundaries: no automatic signing and no automatic spending
-
-## Main Demo Prompt
-
-```text
-Move 10 USDC from Base to Arbitrum with best received amount
-```
-
-Other Earn prompts from the original project still work, for example:
-
-```text
-Find the best USDC vault on Base
-```
-
-## Safety Model
-
-IntentLens uses mainnet quote/order-preview data. Any real transaction must still stop at wallet confirmation.
-
-- No automatic signatures
-- No automatic spending
-- No self-operated solver
-- No claim that an order is settled unless LI.FI returns that status
-
-## Setup
+## Run Locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000).
 
-Create `.env.local` from `.env.local.example` and set:
+## Demo Script
 
-```env
-DEEPSEEK_API_KEY=
-MAIN_AGENT_MODEL=deepseek/deepseek-v4-pro
-EARNING_AGENT_MODEL=deepseek/deepseek-v4-pro
-NEXT_PUBLIC_WC_PROJECT_ID=
-LIFI_API_KEY=
-```
+Use a small real mainnet amount only.
 
-`LIFI_API_KEY` is optional for the existing LI.FI route/Earn APIs. The Intents MVP targets the public mainnet order API at `https://order.li.fi`.
+1. Connect a merchant wallet or paste a merchant address.
+2. Create an invoice for `20 USDC on Base`.
+3. Connect the payer wallet.
+4. Select `Arbitrum USDC` as the payer source asset.
+5. Request a LI.FI quote.
+6. Review payer estimated cost and merchant locked receiving terms.
+7. Click `Approve & Pay With Wallet`.
+8. Confirm approval if the wallet asks.
+9. Confirm the route transaction.
+10. Wait for LI.FI status polling to generate the receipt.
 
-## Architecture
+## Safety Boundaries
 
-- `app/api/agents`: streams planner, route/Earn, and Intents events
-- `lib/plannerRuntime.ts`: parses natural-language goals into structured plans
-- `lib/lifiIntents.ts`: builds mainnet Intents quote requests and Flight Records
-- `components/IntentFlightRecordCard.tsx`: renders the builder-facing execution trace
-- Existing LI.FI Earn/route modules remain as the classic route baseline
+- Agent plans. User signs. Wallet executes. LI.FI routes. App tracks. Receipt proves.
+- ChainCashier does not custody funds.
+- ChainCashier does not hold private keys.
+- ChainCashier does not automatically spend user assets.
+- Merchant address, target chain, target token, and receive amount are locked in the invoice.
+- The payer cannot change merchant receiving terms.
+- The quote is blocked if LI.FI target address, target chain, or target token differs from the locked invoice.
+- Receipt proof is evidence, not a settlement guarantee.
 
-## Tests
+## Important Files
+
+- `components/ChainCashierDemo.tsx`: main merchant/payer/recorder demo UI.
+- `lib/chainCashier.ts`: invoice model, quote request builder, quote safety validation, receipt/support package logic.
+- `lib/agentConfig.ts` and `lib/agentClient.ts`: GLM-5.1 / Z.AI model configuration.
+- `lib/lifiClient.ts`: LI.FI quote/status client.
+- `app/api/chaincashier/agent/route.ts`: GLM-5.1 checkout planning endpoint.
+- `app/api/payments/quote/route.ts`: LI.FI `quote/toAmount` endpoint wrapper.
+- `app/api/payments/status/route.ts`: LI.FI status tracking endpoint.
+
+## Verification
 
 ```bash
-node tests/planner-runtime.test.mjs
+node tests/chain-cashier.test.mjs
 node tests/agent-config.test.mjs
-node tests/lifi-intents.test.mjs
+node tests/agent-client.test.mjs
+node tests/lifi-client.test.mjs
 npx tsc --noEmit
+npm run lint
 npm run build
 ```
+

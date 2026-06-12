@@ -144,6 +144,13 @@ export function createLifiClient(fetchImpl: FetchLike = fetch) {
 				`${LIFI_QUOTE_API_BASE_URL}?${searchParams.toString()}`,
 			);
 		},
+		getQuoteToAmount(params: Record<string, QueryParamValue>) {
+			const searchParams = buildSearchParams(params);
+			return requestJson<Record<string, unknown>>(
+				fetchImpl,
+				`${LIFI_QUOTE_API_BASE_URL}/toAmount?${searchParams.toString()}`,
+			);
+		},
 		getStatus(params: Record<string, QueryParamValue>) {
 			const searchParams = buildSearchParams(params);
 			return requestJson<Record<string, unknown>>(

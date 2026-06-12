@@ -40,6 +40,7 @@ test('getAgentConfig defaults main and earning agents to DeepSeek Pro', async ()
 	const { getAgentConfig } = await loadAgentConfigModule();
 	delete process.env.MAIN_AGENT_MODEL;
 	delete process.env.EARNING_AGENT_MODEL;
+	delete process.env.CHECKOUT_AGENT_MODEL;
 
 	const main = getAgentConfig('main');
 	const earning = getAgentConfig('earning');
@@ -50,6 +51,30 @@ test('getAgentConfig defaults main and earning agents to DeepSeek Pro', async ()
 	assert.equal(earning.provider, 'deepseek');
 	assert.equal(earning.model, 'deepseek-v4-pro');
 	assert.equal(earning.apiKeyEnv, 'DEEPSEEK_API_KEY');
+});
+
+test('getAgentConfig defaults checkout agent to Z.AI GLM-5.1', async () => {
+	const { getAgentConfig } = await loadAgentConfigModule();
+	delete process.env.CHECKOUT_AGENT_MODEL;
+
+	const checkout = getAgentConfig('checkout');
+
+	assert.equal(checkout.provider, 'zai');
+	assert.equal(checkout.model, 'glm-5.1');
+	assert.equal(checkout.apiKeyEnv, 'ZAI_API_KEY');
+});
+
+test('getAgentConfig maps explicit zai provider config to ZAI_API_KEY', async () => {
+	const { getAgentConfig } = await loadAgentConfigModule();
+	process.env.CHECKOUT_AGENT_MODEL = 'zai/glm-5.1';
+
+	const checkout = getAgentConfig('checkout');
+
+	assert.equal(checkout.provider, 'zai');
+	assert.equal(checkout.model, 'glm-5.1');
+	assert.equal(checkout.apiKeyEnv, 'ZAI_API_KEY');
+
+	delete process.env.CHECKOUT_AGENT_MODEL;
 });
 
 test('getAgentConfig maps explicit deepseek provider config to DEEPSEEK_API_KEY', async () => {

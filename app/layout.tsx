@@ -3,8 +3,8 @@ import './globals.css';
 import Providers from '../components/Providers';
 
 export const metadata = {
-	title: 'IntentLens',
-	description: 'A mainnet LI.FI Intents flight recorder for builders.',
+	title: 'ChainCashier',
+	description: 'AI cross-chain checkout agent for PayFi merchants.',
 };
 
 export default async function RootLayout({

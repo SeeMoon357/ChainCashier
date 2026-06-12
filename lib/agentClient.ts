@@ -13,6 +13,7 @@ import type { AgentModelConfig, SupportedModel } from './agentConfig';
 import { getQwenBaseUrl } from './agentRuntime';
 
 const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+const DEFAULT_ZAI_BASE_URL = 'https://api.z.ai/api/paas/v4';
 
 function asLanguageModel(model: unknown): LanguageModel {
 	return model as LanguageModel;
@@ -23,6 +24,7 @@ export function getModelFromConfig(config: AgentModelConfig): LanguageModel {
 
 	const apiKeys: Record<SupportedModel, string | undefined> = {
 		deepseek: process.env.DEEPSEEK_API_KEY,
+		zai: process.env.ZAI_API_KEY,
 		zhipu: process.env.ZHIPU_API_KEY,
 		openai: process.env.OPENAI_API_KEY,
 		anthropic: process.env.ANTHROPIC_API_KEY,
@@ -51,6 +53,15 @@ export function getModelFromConfig(config: AgentModelConfig): LanguageModel {
 				name: 'deepseek',
 			});
 			return asLanguageModel(deepseek(model));
+		}
+		case 'zai': {
+			const zai = createOpenAI({
+				apiKey,
+				baseURL: process.env.ZAI_BASE_URL || DEFAULT_ZAI_BASE_URL,
+				compatibility: 'compatible',
+				name: 'zai',
+			});
+			return asLanguageModel(zai(model));
 		}
 		case 'alibaba':
 			return asLanguageModel(alibaba(model));

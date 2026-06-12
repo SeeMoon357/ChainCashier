@@ -6,6 +6,7 @@
 
 export type SupportedModel =
 	| 'deepseek'
+	| 'zai'
 	| 'zhipu'
 	| 'openai'
 	| 'anthropic'
@@ -63,6 +64,14 @@ const DEFAULT_CONFIGS: Record<string, AgentModelConfig> = {
 		temperature: 0.5,
 		maxTokens: 1000,
 	},
+	checkout: {
+		name: 'Checkout Agent',
+		model: 'glm-5.1',
+		provider: 'zai',
+		apiKeyEnv: 'ZAI_API_KEY',
+		temperature: 0.2,
+		maxTokens: 2000,
+	},
 };
 
 export function getAgentConfig(
@@ -106,6 +115,7 @@ function parseModelString(
 
 	let provider: SupportedModel = 'deepseek';
 	if (modelString.startsWith('gpt-')) provider = 'openai';
+	else if (modelString.startsWith('glm-5.1')) provider = 'zai';
 	else if (modelString.includes('glm')) provider = 'zhipu';
 	else if (modelString.startsWith('claude')) provider = 'anthropic';
 	else if (modelString.startsWith('qwen')) provider = 'qwen';
@@ -126,6 +136,7 @@ function parseModelString(
 function getApiKeyEnvName(provider: SupportedModel): string {
 	const keyMap: Record<SupportedModel, string> = {
 		deepseek: 'DEEPSEEK_API_KEY',
+		zai: 'ZAI_API_KEY',
 		zhipu: 'ZHIPU_API_KEY',
 		openai: 'OPENAI_API_KEY',
 		anthropic: 'ANTHROPIC_API_KEY',

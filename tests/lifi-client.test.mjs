@@ -79,6 +79,36 @@ test('createLifiClient builds the quote request against li.quest', async () => {
 	assert.equal(calls[0].init?.cache, 'no-store');
 });
 
+test('createLifiClient builds the toAmount quote request against li.quest', async () => {
+	const calls = [];
+	const { createLifiClient } = await loadLifiClientModule();
+	const client = createLifiClient(async (url, init) => {
+		calls.push({ url: String(url), init });
+		return new Response(JSON.stringify({ transactionRequest: {} }), {
+			status: 200,
+			headers: { 'content-type': 'application/json' },
+		});
+	});
+
+	const result = await client.getQuoteToAmount({
+		fromChain: 42161,
+		toChain: 8453,
+		fromToken: '0xfrom',
+		toToken: '0xto',
+		toAmount: '20000000',
+		fromAddress: '0x1111111111111111111111111111111111111111',
+		toAddress: '0x2222222222222222222222222222222222222222',
+	});
+
+	assert.equal(result.success, true);
+	assert.equal(calls.length, 1);
+	assert.match(calls[0].url, /https:\/\/li\.quest\/v1\/quote\/toAmount\?/);
+	assert.match(calls[0].url, /fromChain=42161/);
+	assert.match(calls[0].url, /toChain=8453/);
+	assert.match(calls[0].url, /toAmount=20000000/);
+	assert.equal(calls[0].init?.cache, 'no-store');
+});
+
 test('createLifiClient builds the status request against li.quest', async () => {
 	const calls = [];
 	const { createLifiClient } = await loadLifiClientModule();
