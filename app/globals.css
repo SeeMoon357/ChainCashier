@@ -1,0 +1,1058 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+@import '@heroui/styles/css';
+
+@theme {
+	--color-primary: #4c644e;
+	--color-primary-container: #8fa98f;
+	--color-secondary: #a67c00;
+	--color-secondary-fixed: #f7e382;
+	--color-surface: #fbf9f5;
+	--color-surface-container-lowest: #ffffff;
+	--color-surface-container-low: #f5f3ef;
+	--color-surface-container: #efeeea;
+	--color-surface-container-high: #eae8e4;
+	--color-on-surface: #1b1c1a;
+	--color-on-surface-variant: #434842;
+	--color-outline-variant: #c3c8bf;
+	--color-error: #ba1a1a;
+	--color-accent-gold: #d4af37;
+
+	--font-headline: 'Noto Serif', serif;
+	--font-body: 'Manrope', sans-serif;
+	--font-label: 'Plus Jakarta Sans', sans-serif;
+	--font-art: 'Cinzel Decorative', serif;
+
+	/* Dark mode colors */
+	--color-surface-dark: #0f172a;
+	--color-surface-container-lowest-dark: #1a202c;
+	--color-surface-container-low-dark: #1e293b;
+	--color-surface-container-dark: #334155;
+	--color-surface-container-high-dark: #475569;
+	--color-on-surface-dark: #f1f5f9;
+	--color-on-surface-variant-dark: #cbd5e1;
+	--color-outline-variant-dark: #64748b;
+}
+
+/* 全局默认颜色 */
+:root {
+	/* 背景默认白色 */
+	--app-bg: #fbfaf7;
+	/* 文字默认黑色 */
+	--app-text: #171717;
+	--app-panel: #ffffff;
+	--app-sidebar: #f9f9f9;
+	--app-muted: rgba(23, 23, 23, 0.64);
+	--app-soft: rgba(23, 23, 23, 0.45);
+	--app-border: rgba(23, 23, 23, 0.18);
+	--app-hover: rgba(23, 23, 23, 0.08);
+	--app-input-text: #171717;
+	--app-input-placeholder: #5c5c5c;
+	--app-prompt-title: rgba(23, 23, 23, 0.55);
+	--app-prompt-desc: rgba(23, 23, 23, 0.65);
+	--app-send-btn-bg: #171717;
+	--app-send-btn-fg: #ffffff;
+	--app-sidebar-action-bg: transparent;
+	--app-sidebar-action-hover-bg: rgba(23, 23, 23, 0.08);
+	--app-sidebar-action-fg: var(--app-text);
+	--intentlens-surface: rgba(255, 255, 255, 0.86);
+	--intentlens-surface-soft: rgba(248, 247, 243, 0.82);
+	--intentlens-border: rgba(17, 24, 39, 0.1);
+	--intentlens-shadow: 0 18px 50px rgba(17, 24, 39, 0.06);
+	--intentlens-shadow-soft: 0 8px 24px rgba(17, 24, 39, 0.05);
+}
+
+/* 黑夜模式下颜色 */
+.dark {
+	/* 此时背景黑色 */
+	--app-bg: #212121;
+	/* 文字白色 */
+	--app-text: #fff;
+	/* 卡片、对话框或主内容区的颜色 */
+	--app-panel: #181818;
+	--app-sidebar: #303030;
+	/* 次要文字（如时间戳、副标题） */
+	--app-muted: #afafaf;
+	/* 提示性文字或占位符 */
+	--app-soft: #afafaf;
+	--app-border: rgba(255, 255, 255, 0.15);
+	--app-hover: rgba(255, 255, 255, 0.1);
+	--app-input-text: #ffffff;
+	--app-input-placeholder: #8f8f8f;
+	--app-prompt-title: rgba(255, 255, 255, 0.55);
+	--app-prompt-desc: rgba(255, 255, 255, 0.7);
+	--app-send-btn-bg: #d4d4d4;
+	--app-send-btn-fg: #111111;
+	--app-sidebar-action-bg: var(--app-sidebar);
+	--app-sidebar-action-hover-bg: rgba(255, 255, 255, 0.14);
+	--app-sidebar-action-fg: #ffffff;
+	--intentlens-surface: rgba(24, 24, 24, 0.9);
+	--intentlens-surface-soft: rgba(255, 255, 255, 0.06);
+	--intentlens-border: rgba(255, 255, 255, 0.14);
+	--intentlens-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+	--intentlens-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+body {
+	font-family: var(--font-inter);
+	background-color: var(--app-bg);
+	background-image:
+		radial-gradient(circle at 18% 0%, rgba(143, 169, 143, 0.13), transparent 32rem),
+		linear-gradient(180deg, #ffffff 0%, var(--app-bg) 26rem);
+	color: var(--app-text);
+	min-height: 100dvh;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+.dark body {
+	background-image:
+		radial-gradient(circle at 18% 0%, rgba(143, 169, 143, 0.12), transparent 32rem),
+		linear-gradient(180deg, #212121 0%, var(--app-bg) 26rem);
+}
+
+.intentlens-chat-shell {
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.92)),
+		var(--app-panel);
+	border: 1px solid rgba(17, 24, 39, 0.06);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.intentlens-composer-shell,
+.intentlens-card {
+	background: var(--intentlens-surface);
+	border: 1px solid var(--intentlens-border);
+	box-shadow: var(--intentlens-shadow-soft);
+	backdrop-filter: blur(10px);
+}
+
+.intentlens-card-strong {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.88));
+	border: 1px solid var(--intentlens-border);
+	box-shadow: var(--intentlens-shadow);
+}
+
+.intentlens-step-card {
+	background: var(--intentlens-surface-soft);
+	border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.intentlens-soft-panel {
+	background: rgba(248, 250, 252, 0.72);
+	border: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.intentlens-status-pill {
+	background: rgba(16, 185, 129, 0.1);
+	color: #047857;
+	border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+.dark .intentlens-chat-shell,
+.dark .intentlens-card,
+.dark .intentlens-card-strong,
+.dark .intentlens-composer-shell {
+	background: var(--intentlens-surface);
+	border-color: var(--intentlens-border);
+}
+
+.dark .intentlens-step-card,
+.dark .intentlens-soft-panel {
+	background: var(--intentlens-surface-soft);
+	border-color: var(--intentlens-border);
+}
+
+.glass-panel {
+	background: rgba(228, 226, 222, 0.6);
+	backdrop-filter: blur(12px);
+}
+
+.gold-glow {
+	box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+}
+
+/* 兼容既有 Tailwind 字面量颜色类，确保亮色主题可读 */
+[class*='text-[#ececec]'] {
+	color: var(--app-text) !important;
+}
+
+[class*='text-[rgba(255,255,255,0.58)]'],
+[class*='text-[rgba(255,255,255,0.7)]'],
+[class*='text-[rgba(255,255,255,0.85)]'],
+[class*='text-[#a4a4a4]'],
+[class*='placeholder-[rgba(255,255,255,0.58)]'] {
+	color: var(--app-muted) !important;
+}
+
+[class*='text-[rgba(255,255,255,0.4)]'] {
+	color: var(--app-soft) !important;
+}
+
+[class*='bg-[#303030]'] {
+	background-color: var(--app-panel) !important;
+}
+
+[class*='border-[rgba(255,255,255,0.15)]'],
+[class*='border-[rgba(255,255,255,0.1)]'],
+[class*='border-[rgba(255,255,255,0.05)]'] {
+	border-color: var(--app-border) !important;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+	background: rgba(232, 232, 232, 0.42);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+	background: rgba(245, 245, 245, 0.62);
+}
+
+/* 对话区滚动条可见性（Bubble.List scroll 容器） */
+.ant-bubble-list-scroll,
+.ant-bubble-list-scrollbar,
+.ant-bubble-list-scroll-container {
+	max-height: none !important;
+	height: auto !important;
+	overflow: hidden !important;
+}
+
+.conversation-scroll-area {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(128, 128, 128, 0.68) transparent;
+}
+
+.conversation-scroll-area::-webkit-scrollbar {
+	width: 10px;
+}
+
+.conversation-scroll-area::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.conversation-scroll-area::-webkit-scrollbar-thumb {
+	background: rgba(126, 126, 126, 0.68);
+	border-radius: 999px;
+}
+
+.conversation-scroll-area::-webkit-scrollbar-thumb:hover {
+	background: rgba(142, 142, 142, 0.8);
+}
+
+.dark .conversation-scroll-area {
+	scrollbar-color: rgba(248, 248, 248, 0.96) rgba(255, 255, 255, 0.12);
+}
+
+.dark .conversation-scroll-area::-webkit-scrollbar-thumb {
+	background: rgba(248, 248, 248, 0.96);
+}
+
+.dark .conversation-scroll-area::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 1);
+}
+
+.dark .conversation-scroll-area::-webkit-scrollbar-track {
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.ant-bubble-list-scroll::-webkit-scrollbar,
+.ant-bubble-list-scrollbar::-webkit-scrollbar,
+.ant-bubble-list-scroll-container::-webkit-scrollbar {
+	width: 10px;
+}
+
+.ant-bubble-list-scroll::-webkit-scrollbar-thumb,
+.ant-bubble-list-scrollbar::-webkit-scrollbar-thumb,
+.ant-bubble-list-scroll-container::-webkit-scrollbar-thumb {
+	background: rgba(120, 120, 120, 0.55);
+	border-radius: 999px;
+}
+
+.dark .ant-bubble-list-scroll::-webkit-scrollbar-thumb,
+.dark .ant-bubble-list-scrollbar::-webkit-scrollbar-thumb,
+.dark .ant-bubble-list-scroll-container::-webkit-scrollbar-thumb {
+	background: rgba(245, 245, 245, 0.92);
+}
+
+.ant-bubble .ant-bubble-content-outlined {
+	background: rgba(255, 255, 255, 0.88) !important;
+	border-color: rgba(17, 24, 39, 0.08) !important;
+	box-shadow: 0 10px 28px rgba(17, 24, 39, 0.05) !important;
+	border-radius: 20px !important;
+}
+
+.ant-bubble.ant-bubble-end .ant-bubble-content,
+.ant-bubble.ant-bubble-end .ant-bubble-content-filled {
+	background: rgba(243, 244, 246, 0.92) !important;
+	border: 1px solid rgba(17, 24, 39, 0.06) !important;
+	border-radius: 18px !important;
+	color: #111827 !important;
+	box-shadow: 0 8px 20px rgba(17, 24, 39, 0.04) !important;
+}
+
+textarea:focus {
+	outline: none;
+	box-shadow: none;
+}
+
+.glass-chip {
+	background: color-mix(in srgb, var(--app-panel) 92%, transparent);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	position: relative;
+	border: 1px solid transparent;
+	background-clip: padding-box;
+	transition: all 0.3s ease;
+}
+
+.glass-chip:hover {
+	background: color-mix(in srgb, var(--app-panel) 84%, var(--app-hover));
+	transform: translateY(-1px);
+}
+
+.border-blue-purple {
+	background-image:
+		linear-gradient(var(--app-panel), var(--app-panel)),
+		linear-gradient(to right, #3b82f6, #a855f7);
+	border: 1px solid transparent;
+	background-origin: border-box;
+	background-clip: padding-box, border-box;
+}
+
+.border-green-blue {
+	background-image:
+		linear-gradient(var(--app-panel), var(--app-panel)),
+		linear-gradient(to right, #10b981, #3b82f6);
+	border: 1px solid transparent;
+	background-origin: border-box;
+	background-clip: padding-box, border-box;
+}
+
+.border-orange-pink {
+	background-image:
+		linear-gradient(var(--app-panel), var(--app-panel)),
+		linear-gradient(to right, #f59e0b, #ec4899);
+	border: 1px solid transparent;
+	background-origin: border-box;
+	background-clip: padding-box, border-box;
+}
+
+.theme-toggle {
+	background: linear-gradient(to right, #f59e0b, #6366f1);
+	padding: 2px;
+	border-radius: 9999px;
+	display: flex;
+	align-items: center;
+	width: 52px;
+	height: 26px;
+	border: 1px solid var(--app-border);
+}
+
+.theme-toggle-knob {
+	background: white;
+	height: 22px;
+	width: 22px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.dark .theme-toggle-knob {
+	transform: translateX(26px);
+}
+/* 主题切换时间过渡 */
+.theme-adaptive-icon {
+	transition: filter 0.2s ease;
+}
+
+/* 主题自适应图标 */
+.dark .theme-adaptive-icon {
+	filter: brightness(0) invert(1);
+}
+
+.theme-icon-moon {
+	display: none;
+}
+
+.theme-icon-sun {
+	display: inline;
+}
+
+.sidebar-search.ant-input-affix-wrapper,
+.sidebar-search.ant-input-outlined,
+.sidebar-search.ant-input-affix-wrapper .ant-input {
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 78%,
+		var(--app-bg)
+	) !important;
+	color: var(--app-text) !important;
+	border-color: var(--app-border) !important;
+}
+
+.sidebar-search.ant-input-affix-wrapper:hover,
+.sidebar-search.ant-input-affix-wrapper-focused {
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 88%,
+		var(--app-hover)
+	) !important;
+	border-color: color-mix(in srgb, var(--app-text) 22%, transparent) !important;
+}
+
+.sidebar-search.ant-input-affix-wrapper .ant-input::placeholder {
+	color: var(--app-muted) !important;
+}
+
+.dark .sidebar-search.ant-input-affix-wrapper,
+.dark .sidebar-search.ant-input-outlined,
+.dark .sidebar-search.ant-input-affix-wrapper:hover,
+.dark .sidebar-search.ant-input-affix-wrapper-focused,
+.dark .sidebar-search.ant-input-affix-wrapper .ant-input {
+	background: var(--app-sidebar) !important;
+}
+
+.sidebar-conversations .ant-conversations-item {
+	width: 100%;
+	border-radius: 10px;
+	margin-bottom: 0;
+	padding-top: 10px !important;
+	padding-bottom: 10px !important;
+	height: 55px !important;
+	transition: background-color 0.2s ease;
+}
+
+.sidebar-conversations .ant-conversations-item-content {
+	width: 100%;
+}
+
+.sidebar-conversations .ant-conversations-list {
+	gap: 0 !important;
+}
+
+.sidebar-conversations .ant-conversations-item:hover {
+	background: var(--app-hover) !important;
+}
+
+.sidebar-conversations .ant-conversations-item-active,
+.sidebar-conversations .ant-conversations-item-active:hover {
+	background: color-mix(in srgb, var(--app-text) 16%, transparent) !important;
+}
+
+.sidebar-conversations .ant-conversations-menu {
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.sidebar-conversations .ant-conversations-menu .ant-btn {
+	color: var(--app-text) !important;
+}
+
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn .anticon,
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn .anticon svg {
+	color: var(--app-text) !important;
+	fill: currentColor !important;
+}
+
+.dark
+	.sidebar-conversations
+	.ant-conversations-menu
+	.ant-btn
+	.anticon
+	svg
+	path {
+	fill: currentColor !important;
+}
+
+.sidebar-conversations .ant-conversations-menu .ant-btn:hover,
+.sidebar-conversations .ant-conversations-menu .ant-btn:focus-visible {
+	color: var(--app-text) !important;
+	background: var(--app-hover) !important;
+}
+
+.sidebar-action-btn.ant-btn {
+	background: var(--app-sidebar-action-bg) !important;
+	color: var(--app-sidebar-action-fg) !important;
+	border-radius: 8px !important;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity 0.2s ease,
+		background-color 0.2s ease,
+		color 0.2s ease;
+}
+
+.sidebar-action-btn.ant-btn:hover,
+.sidebar-action-btn.ant-btn:focus-visible {
+	background: var(--app-sidebar-action-hover-bg) !important;
+	color: var(--app-sidebar-action-fg) !important;
+}
+
+.sidebar-conversations
+	.ant-conversations-item:hover
+	.sidebar-action-btn.ant-btn,
+.sidebar-conversations
+	.ant-conversations-item-active
+	.sidebar-action-btn.ant-btn,
+.sidebar-conversations
+	.ant-conversations-item:focus-within
+	.sidebar-action-btn.ant-btn {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+}
+
+.dark
+	.sidebar-conversations
+	.ant-conversations-item
+	.sidebar-action-btn.ant-btn {
+	background: var(--app-sidebar-action-bg) !important;
+	color: var(--app-sidebar-action-fg) !important;
+}
+
+.dark
+	.sidebar-conversations
+	.ant-conversations-item
+	.sidebar-action-btn.ant-btn:hover,
+.dark
+	.sidebar-conversations
+	.ant-conversations-item
+	.sidebar-action-btn.ant-btn:focus-visible {
+	background: var(--app-sidebar-action-hover-bg) !important;
+	color: var(--app-sidebar-action-fg) !important;
+}
+
+.dark .sidebar-conversations .ant-conversations-menu {
+	background: #ffffff !important;
+	border-radius: 10px;
+}
+
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn,
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn .anticon,
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn .anticon svg {
+	color: #171717 !important;
+	fill: currentColor !important;
+}
+
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn:hover,
+.dark .sidebar-conversations .ant-conversations-menu .ant-btn:focus-visible {
+	color: #171717 !important;
+	background: rgba(23, 23, 23, 0.08) !important;
+}
+
+.sidebar-conversations .ant-conversations-item:hover .ant-conversations-menu,
+.sidebar-conversations .ant-conversations-item-active .ant-conversations-menu {
+	opacity: 1;
+}
+
+.dark .theme-icon-moon {
+	display: inline;
+}
+
+.dark .theme-icon-sun {
+	display: none;
+}
+
+/* Ant Design X Sender 主题统一 */
+.ant-sender,
+.ant-sender-header,
+.ant-sender-content,
+.ant-sender-footer,
+.ant-sender-input {
+	background: var(--app-panel) !important;
+	color: var(--app-text) !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+.ant-sender .ant-sender-input-slot,
+.ant-sender .ant-sender-input-slot *,
+.ant-sender textarea,
+.ant-sender .ant-input,
+.ant-sender .ant-input-textarea textarea {
+	color: var(--app-input-text) !important;
+	-webkit-text-fill-color: var(--app-input-text) !important;
+	font-size: 15px !important;
+	line-height: 1.35 !important;
+	font-weight: 500 !important;
+}
+
+.ant-sender .ant-sender-input-slot:empty::before,
+.ant-sender textarea::placeholder,
+.ant-sender .ant-input::placeholder,
+.ant-sender .ant-input-textarea textarea::placeholder {
+	color: var(--app-input-placeholder) !important;
+	font-size: 15px !important;
+	opacity: 1 !important;
+}
+
+.ant-sender .ant-sender-slot-content:empty::after,
+.ant-sender .ant-sender-skill.ant-sender-skill-empty::after,
+.ant-sender .ant-sender-slot-select.placeholder,
+.ant-sender .ant-sender-slot-select .placeholder {
+	color: var(--app-input-placeholder) !important;
+}
+
+/* 避免主题切换时输入占位区出现瞬时底色闪烁 */
+.chat-sender.ant-sender .ant-sender-input,
+.chat-sender.ant-sender .ant-sender-content,
+.chat-sender.ant-sender .ant-sender-input-slot,
+.chat-sender.ant-sender textarea,
+.chat-sender.ant-sender .ant-input,
+.chat-sender.ant-sender .ant-input-textarea textarea {
+	background: transparent !important;
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease,
+		border-color 0.2s ease;
+}
+
+.chat-sender.ant-sender .ant-sender-input-slot:empty::before,
+.chat-sender.ant-sender .ant-sender-input-slot::before,
+.chat-sender.ant-sender [contenteditable='true']:empty::before,
+.chat-sender.ant-sender .ant-sender-input-slot[data-placeholder]::before,
+.chat-sender.ant-sender .ant-sender-slot-content:empty::after,
+.chat-sender.ant-sender .ant-sender-slot-content[data-placeholder]::after,
+.chat-sender.ant-sender .ant-sender-skill.ant-sender-skill-empty::after,
+.chat-sender.ant-sender textarea::placeholder,
+.chat-sender.ant-sender .ant-input::placeholder,
+.chat-sender.ant-sender .ant-input-textarea textarea::placeholder {
+	background: transparent !important;
+	transition: color 0.2s ease !important;
+}
+
+.chat-sender.ant-sender .ant-sender-footer,
+.chat-sender-custom-footer {
+	background: var(--app-panel) !important;
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease,
+		color 0.2s ease;
+}
+
+.chat-sender-custom-footer > * {
+	background: transparent !important;
+}
+
+/* Sender.Switch 与语音/附件按钮保持一致的悬浮反馈 */
+.chat-sender.ant-sender {
+	position: relative !important;
+	min-height: 48px !important;
+	border-radius: 18px !important;
+}
+
+.chat-sender.ant-sender .ant-sender-content {
+	min-height: 48px !important;
+	padding: 10px 54px 10px 16px !important;
+	align-items: center !important;
+}
+
+.chat-sender.ant-sender .ant-sender-input,
+.chat-sender.ant-sender .ant-sender-input-slot,
+.chat-sender.ant-sender textarea,
+.chat-sender.ant-sender .ant-input,
+.chat-sender.ant-sender .ant-input-textarea textarea {
+	min-height: 24px !important;
+	line-height: 24px !important;
+}
+
+.chat-sender.ant-sender .ant-sender-footer {
+	position: absolute !important;
+	right: 8px !important;
+	bottom: 6px !important;
+	z-index: 2 !important;
+	padding: 0 !important;
+	min-height: 0 !important;
+	width: auto !important;
+	background: transparent !important;
+	pointer-events: none !important;
+}
+
+.chat-sender.ant-sender .ant-sender-footer button,
+.chat-sender.ant-sender .ant-sender-footer .ant-btn {
+	pointer-events: auto !important;
+}
+
+.chat-sender.ant-sender .ant-sender-switch .ant-btn {
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease,
+		color 0.2s ease;
+}
+
+.chat-sender.ant-sender
+	.ant-sender-switch
+	.ant-sender-switch-content.ant-btn:hover,
+.chat-sender.ant-sender
+	.ant-sender-switch
+	.ant-sender-switch-content.ant-btn:focus-visible {
+	background-color: rgba(0, 0, 0, 0.04) !important;
+	border-color: var(--app-border) !important;
+	color: var(--app-text) !important;
+}
+
+.dark
+	.chat-sender.ant-sender
+	.ant-sender-switch
+	.ant-sender-switch-content.ant-btn:hover,
+.dark
+	.chat-sender.ant-sender
+	.ant-sender-switch
+	.ant-sender-switch-content.ant-btn:focus-visible {
+	background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Prompts 文字跟随全局主题变量 */
+.ant-prompts .ant-prompts-title {
+	color: var(--app-prompt-title) !important;
+	transition: color 0.2s ease;
+}
+
+.ant-prompts .ant-prompts-item {
+	background: var(--app-panel) !important;
+	border-color: var(--app-border) !important;
+	cursor: pointer;
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease,
+		transform 0.2s ease,
+		box-shadow 0.2s ease;
+}
+
+.ant-prompts,
+.ant-prompts .ant-prompts-list,
+.ant-prompts .ant-prompts-wrap {
+	background: transparent !important;
+	overflow: visible !important;
+}
+
+.ant-prompts .ant-prompts-list.ant-prompts-list-wrap {
+	overflow: visible !important;
+}
+
+.ant-prompts .ant-prompts-item:hover {
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 82%,
+		var(--app-hover)
+	) !important;
+	border-color: color-mix(in srgb, var(--app-border) 88%, #9ca3af) !important;
+	transform: none !important;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.ant-prompts .ant-prompts-item:focus-visible {
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 82%,
+		var(--app-hover)
+	) !important;
+	border-color: color-mix(in srgb, var(--app-border) 88%, #9ca3af) !important;
+	transform: none !important;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.dark .ant-prompts .ant-prompts-item:hover,
+.dark .ant-prompts .ant-prompts-item:focus-visible {
+	box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.ant-prompts .ant-prompts-item:active {
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 80%,
+		var(--app-hover)
+	) !important;
+}
+
+.ant-prompts .ant-prompts-item .ant-prompts-label,
+.ant-prompts .ant-prompts-item .ant-prompts-desc {
+	color: var(--app-prompt-desc) !important;
+}
+
+.ant-prompts .ant-prompts-item .ant-prompts-label,
+.ant-prompts .ant-prompts-title {
+	font-weight: 500 !important;
+}
+
+/* 暗色模式强覆盖，避免被运行时 token 回退到浅色 */
+.dark .ant-prompts .ant-prompts-title,
+.dark .ant-prompts .ant-prompts-title * {
+	color: var(--app-prompt-title) !important;
+}
+
+.dark .ant-prompts .ant-prompts-item .ant-prompts-label,
+.dark .ant-prompts .ant-prompts-item .ant-prompts-desc,
+.dark .ant-prompts .ant-prompts-item .ant-prompts-label *,
+.dark .ant-prompts .ant-prompts-item .ant-prompts-desc * {
+	color: var(--app-prompt-desc) !important;
+}
+
+.dark .ant-sender .ant-sender-input-slot,
+.dark .ant-sender .ant-sender-input-slot *,
+.dark .ant-sender textarea,
+.dark .ant-sender .ant-input,
+.dark .ant-sender .ant-input-textarea textarea {
+	color: var(--app-input-text) !important;
+	-webkit-text-fill-color: var(--app-input-text) !important;
+}
+
+.dark .ant-sender .ant-sender-input-slot:empty::before,
+.dark .ant-sender .ant-sender-input-slot::before,
+.dark .ant-sender [contenteditable='true']:empty::before,
+.dark .ant-sender .ant-sender-input-slot[data-placeholder]::before,
+.dark .ant-sender textarea::placeholder,
+.dark .ant-sender .ant-input::placeholder,
+.dark .ant-sender .ant-input-textarea textarea::placeholder {
+	color: var(--app-input-placeholder) !important;
+	opacity: 1 !important;
+}
+
+.dark .chat-sender.ant-sender [placeholder] {
+	color: var(--app-input-placeholder) !important;
+	-webkit-text-fill-color: var(--app-input-placeholder) !important;
+}
+
+.dark .ant-sender .ant-sender-slot-content:empty::after,
+.dark .ant-sender .ant-sender-slot-content[data-placeholder]::after,
+.dark .ant-sender .ant-sender-skill.ant-sender-skill-empty::after,
+.dark .ant-sender .ant-sender-slot-select.placeholder,
+.dark .ant-sender .ant-sender-slot-select .placeholder {
+	color: var(--app-input-placeholder) !important;
+}
+
+/* ChatSender 占位符强覆盖：命中 Sender 的 contenteditable 与 slot 占位结构 */
+.chat-sender.ant-sender .ant-sender-input-slot:empty::before,
+.chat-sender.ant-sender .ant-sender-input-slot::before,
+.chat-sender.ant-sender [contenteditable='true']:empty::before,
+.chat-sender.ant-sender .ant-sender-skill.ant-sender-skill-empty::after,
+.chat-sender.ant-sender .ant-sender-slot-content:empty::after,
+.chat-sender.ant-sender .ant-sender-slot-select.placeholder,
+.chat-sender.ant-sender
+	.ant-sender-slot-select
+	.ant-sender-slot-select-value:empty::before,
+.chat-sender.ant-sender textarea::placeholder,
+.chat-sender.ant-sender .ant-input::placeholder,
+.chat-sender.ant-sender .ant-input-textarea textarea::placeholder {
+	color: var(--app-input-placeholder) !important;
+	opacity: 1 !important;
+}
+
+.chat-sender.ant-sender [placeholder] {
+	color: var(--app-input-placeholder) !important;
+	-webkit-text-fill-color: var(--app-input-placeholder) !important;
+}
+
+.ant-sender .ant-btn,
+.ant-sender .ant-sender-switch {
+	color: var(--app-text) !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+.ant-sender .ant-btn-default,
+.ant-sender .ant-sender-switch {
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 88%,
+		var(--app-hover)
+	) !important;
+}
+
+.ant-sender .ant-btn-primary {
+	background: var(--app-send-btn-bg) !important;
+	border-color: var(--app-send-btn-bg) !important;
+	color: var(--app-send-btn-fg) !important;
+	border-radius: 999px !important;
+	box-shadow: 0 10px 22px rgba(17, 24, 39, 0.14) !important;
+}
+
+.ant-sender .ant-btn-primary.ant-btn-icon-only,
+.ant-sender .ant-btn-primary .anticon,
+.ant-sender .ant-btn-primary svg {
+	color: var(--app-send-btn-fg) !important;
+	fill: currentColor !important;
+}
+
+.ant-sender .ant-btn-default.ant-btn-icon-only,
+.ant-sender .ant-btn-default .anticon,
+.ant-sender .ant-btn-default svg {
+	color: #171717 !important;
+	fill: currentColor !important;
+}
+
+.dark .ant-sender .ant-btn-default.ant-btn-icon-only,
+.dark .ant-sender .ant-btn-default .anticon,
+.dark .ant-sender .ant-btn-default svg {
+	color: #ffffff !important;
+	fill: currentColor !important;
+}
+
+.dark .ant-sender .ant-btn-primary.ant-btn-icon-only,
+.dark .ant-sender .ant-btn-primary .anticon,
+.dark .ant-sender .ant-btn-primary svg {
+	color: var(--app-send-btn-fg) !important;
+	fill: currentColor !important;
+}
+
+/* Sender.Switch 边框与选中效果 */
+.ant-sender .ant-sender-switch .ant-btn {
+	border: 1px solid var(--app-border) !important;
+	border-radius: 12px !important;
+	background: color-mix(
+		in srgb,
+		var(--app-panel) 90%,
+		var(--app-hover)
+	) !important;
+	transition: all 0.2s ease !important;
+}
+
+.ant-sender .ant-sender-switch .ant-sender-switch-content {
+	border-radius: 10px !important;
+	transition: all 0.2s ease !important;
+}
+
+.ant-sender .ant-sender-switch.ant-sender-switch-checked .ant-btn {
+	border-color: #1677ff !important;
+	color: #1677ff !important;
+	background: color-mix(in srgb, #1677ff 12%, var(--app-panel)) !important;
+	box-shadow: 0 0 0 1px color-mix(in srgb, #1677ff 35%, transparent) !important;
+}
+
+.ant-sender
+	.ant-sender-switch.ant-sender-switch-checked
+	.ant-sender-switch-content {
+	background: color-mix(in srgb, #1677ff 14%, transparent) !important;
+}
+
+/* Bubble 对话在暗色下保持可读 */
+.dark .ant-bubble .ant-bubble-content,
+.dark .ant-bubble .ant-bubble-content * {
+	color: #ffffff !important;
+	-webkit-text-fill-color: #ffffff !important;
+}
+
+.dark .ant-bubble .ant-bubble-content-outlined {
+	background: color-mix(in srgb, var(--app-panel) 92%, #000000) !important;
+	border-color: var(--app-border) !important;
+}
+
+.dark .ant-bubble.ant-bubble-end .ant-bubble-content,
+.dark .ant-bubble.ant-bubble-end .ant-bubble-content-filled {
+	background: #2f2f2f !important;
+	border-color: var(--app-border) !important;
+	color: #ffffff !important;
+	-webkit-text-fill-color: #ffffff !important;
+}
+
+.dark .ant-bubble.ant-bubble-end .ant-bubble-content * {
+	color: #ffffff !important;
+	-webkit-text-fill-color: #ffffff !important;
+}
+
+/* Think / ThoughtChain / Sources 暗色可读性 */
+.dark .ant-think,
+.dark .ant-think * {
+	color: #ffffff !important;
+}
+
+.dark .ant-think .ant-think-content {
+	color: var(--app-muted) !important;
+	border-inline-start-color: var(--app-border) !important;
+}
+
+.dark .ant-thought-chain,
+.dark .ant-thought-chain * {
+	color: #ffffff !important;
+}
+
+.dark .ant-thought-chain .ant-thought-chain-node-description {
+	color: var(--app-muted) !important;
+}
+
+.dark .ant-thought-chain .ant-thought-chain-node-icon::after,
+.dark .ant-thought-chain .ant-thought-chain-node-icon-dashed::after {
+	border-inline-start-color: var(--app-border) !important;
+}
+
+.dark .ant-sources,
+.dark .ant-sources * {
+	color: #ffffff !important;
+}
+
+.dark .ant-sources .ant-sources-title-wrapper {
+	color: var(--app-muted) !important;
+}
+
+.dark .ant-sources .ant-sources-link:hover {
+	color: #8ab4ff !important;
+}
+
+/* Actions（复制 / 喜欢 / 不喜欢 / 重试 / 分享）暗色可读性 */
+.dark .ant-actions,
+.dark .ant-actions * {
+	color: #ffffff !important;
+}
+
+.dark .ant-actions .ant-actions-item,
+.dark .ant-actions.ant-actions-item,
+.dark .ant-actions .ant-actions-copy-copy,
+.dark .ant-actions .ant-actions-feedback,
+.dark .ant-actions .ant-actions-feedback-like,
+.dark .ant-actions .ant-actions-feedback-dislike {
+	color: #ffffff !important;
+}
+
+.dark .ant-actions .ant-actions-item:hover,
+.dark .ant-actions.ant-actions-item:hover {
+	background: color-mix(in srgb, #ffffff 12%, transparent) !important;
+}
+
+.dark .ant-actions .ant-actions-feedback-like-active,
+.dark .ant-actions .ant-actions-feedback-like.ant-actions-feedback-active {
+	color: #ff6b6b !important;
+	background: color-mix(in srgb, #ff6b6b 18%, transparent) !important;
+	border-radius: 8px !important;
+}
+
+.dark .ant-actions .ant-actions-feedback-dislike-active,
+.dark .ant-actions .ant-actions-feedback-dislike.ant-actions-feedback-active {
+	color: #ffb35c !important;
+	background: color-mix(in srgb, #ffb35c 20%, transparent) !important;
+	border-radius: 8px !important;
+}
+
+.dark .ant-actions .ant-actions-feedback-like,
+.dark .ant-actions .ant-actions-feedback-dislike {
+	color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.dark .ant-actions .ant-actions-feedback-like .anticon,
+.dark .ant-actions .ant-actions-feedback-like svg,
+.dark .ant-actions .ant-actions-feedback-dislike .anticon,
+.dark .ant-actions .ant-actions-feedback-dislike svg,
+.dark .ant-actions .ant-actions-feedback-like svg path,
+.dark .ant-actions .ant-actions-feedback-dislike svg path {
+	color: currentColor !important;
+	fill: currentColor !important;
+	stroke: currentColor !important;
+}
