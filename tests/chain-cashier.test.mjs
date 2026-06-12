@@ -65,6 +65,93 @@ test('buildPaymentQuoteRequest uses invoice target and payer source for toAmount
 	});
 });
 
+test('createInvoiceFromAgentOutput supports Arbitrum USDC receiving terms', async () => {
+	const { createInvoiceFromAgentOutput } = await loadTsModule(modulePath);
+
+	const invoice = createInvoiceFromAgentOutput({
+		merchantAddress: '0x1111111111111111111111111111111111111111',
+		origin: 'http://localhost:3000',
+		agentOutput: {
+			invoice: {
+				receiveChain: 'Arbitrum',
+				receiveToken: 'USDC',
+				receiveAmount: '20',
+			},
+		},
+		now: 1,
+	});
+
+	assert.equal(invoice.receiveChain, 'Arbitrum');
+	assert.equal(invoice.receiveChainId, 42161);
+	assert.equal(invoice.receiveTokenAddress, '0xaf88d065e77c8cC2239327C5EDb3A432268e5831');
+});
+
+test('buildPaymentQuoteRequest supports Base to Arbitrum settlement', async () => {
+	const { createInvoiceFromAgentOutput, buildPaymentQuoteRequest } =
+		await loadTsModule(modulePath);
+	const invoice = createInvoiceFromAgentOutput({
+		merchantAddress: '0x2222222222222222222222222222222222222222',
+		origin: 'http://localhost:3000',
+		agentOutput: {
+			invoice: {
+				receiveChain: 'Arbitrum',
+				receiveToken: 'USDC',
+				receiveAmount: '20',
+			},
+		},
+		now: 1,
+	});
+
+	const request = buildPaymentQuoteRequest({
+		invoice,
+		payerAddress: '0x3333333333333333333333333333333333333333',
+		sourceChainId: 8453,
+		sourceTokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+	});
+
+	assert.equal(request.fromChain, 8453);
+	assert.equal(request.toChain, 42161);
+	assert.equal(request.fromToken, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
+	assert.equal(request.toToken, '0xaf88d065e77c8cC2239327C5EDb3A432268e5831');
+});
+
+test('summarizePaymentQuote describes the dynamic target chain', async () => {
+	const { createInvoiceFromAgentOutput, summarizePaymentQuote } =
+		await loadTsModule(modulePath);
+	const invoice = createInvoiceFromAgentOutput({
+		merchantAddress: '0x4444444444444444444444444444444444444444',
+		origin: 'http://localhost:3000',
+		agentOutput: {
+			invoice: {
+				receiveChain: 'Arbitrum',
+				receiveToken: 'USDC',
+				receiveAmount: '20',
+			},
+		},
+		now: 1,
+	});
+
+	const quote = summarizePaymentQuote({
+		invoice,
+		sourceChainId: 8453,
+		sourceTokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+		rawQuote: {
+			action: {
+				fromAmount: '20100000',
+				toAmount: '20000000',
+				fromChainId: 8453,
+				toChainId: 42161,
+				fromToken: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+				toToken: { address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' },
+				toAddress: '0x4444444444444444444444444444444444444444',
+			},
+			tool: 'LI.FI',
+		},
+	});
+
+	assert.equal(quote.routeSummary, 'Base USDC -> Arbitrum USDC via LI.FI');
+});
+
 test('summarizePaymentQuote blocks quotes that do not pay the locked merchant target', async () => {
 	const { createInvoiceFromAgentOutput, summarizePaymentQuote } =
 		await loadTsModule(modulePath);

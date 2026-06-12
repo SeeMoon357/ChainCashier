@@ -3,6 +3,7 @@ import {
 	buildPaymentQuoteRequest,
 	summarizePaymentQuote,
 } from '@/lib/chainCashier';
+import { getChainCashierChainLabel } from '@/lib/chainCashierChains';
 import { getInvoice, saveInvoice, updateInvoice } from '@/lib/chainCashierStore';
 import { createLifiClient } from '@/lib/lifiClient';
 
@@ -48,14 +49,7 @@ export async function POST(request: NextRequest) {
 			status: 'QUOTE_READY',
 			payerAddress: quoteRequest.fromAddress,
 			sourceChainId: quoteRequest.fromChain,
-			sourceChain:
-				quoteRequest.fromChain === 42161
-					? 'Arbitrum'
-					: quoteRequest.fromChain === 10
-						? 'Optimism'
-						: quoteRequest.fromChain === 137
-							? 'Polygon'
-							: `Chain ${quoteRequest.fromChain}`,
+			sourceChain: getChainCashierChainLabel(quoteRequest.fromChain),
 			sourceToken: 'USDC',
 			sourceTokenAddress: quoteRequest.fromToken,
 			quote,

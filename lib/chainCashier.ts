@@ -1,5 +1,9 @@
 import { keccak256, parseUnits, stringToHex } from 'viem';
-import { getChainLabel, getUsdcAddress } from './businessChains';
+import {
+	CHAINCASHIER_USDC_CHAINS,
+	getChainCashierChainLabel,
+	normalizeChainCashierChainKey,
+} from './chainCashierChains';
 import {
 	resolveLifiRouteStatus,
 	type LifiStatusResponse,
@@ -177,28 +181,29 @@ function numberValue(value: unknown): number | undefined {
 	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function assertBaseUsdcInvoice(input: {
+function assertSupportedUsdcInvoice(input: {
 	receiveChain?: string;
 	receiveToken?: string;
 	receiveAmount?: string;
 }) {
-	const receiveChain = input.receiveChain?.trim() || 'Base';
+	const receiveChain = normalizeChainCashierChainKey(input.receiveChain);
 	const receiveToken = input.receiveToken?.trim().toUpperCase() || 'USDC';
 	const receiveAmount = input.receiveAmount?.trim();
 
-	if (receiveChain.toLowerCase() !== 'base') {
-		throw new Error('MVP invoices must receive on Base.');
-	}
-
 	if (receiveToken !== 'USDC') {
-		throw new Error('MVP invoices must receive USDC.');
+		throw new Error('ChainCashier invoices must receive USDC.');
 	}
 
 	if (!receiveAmount || Number(receiveAmount) <= 0) {
 		throw new Error('Invoice receiveAmount must be a positive USDC amount.');
 	}
 
-	return { receiveChain, receiveToken, receiveAmount };
+	return {
+		receiveChain,
+		receiveToken,
+		receiveAmount,
+		chainConfig: CHAINCASHIER_USDC_CHAINS[receiveChain],
+	};
 }
 
 export function createInvoiceFromAgentOutput(input: {
@@ -209,17 +214,12 @@ export function createInvoiceFromAgentOutput(input: {
 }): Invoice {
 	const now = input.now ?? Date.now();
 	const invoicePayload = input.agentOutput.invoice ?? {};
-	const { receiveChain, receiveToken, receiveAmount } = assertBaseUsdcInvoice({
-		receiveChain: invoicePayload.receiveChain,
-		receiveToken: invoicePayload.receiveToken,
-		receiveAmount: invoicePayload.receiveAmount,
-	});
-	const receiveChainId = 8453;
-	const receiveTokenAddress = getUsdcAddress(receiveChainId);
-
-	if (!receiveTokenAddress) {
-		throw new Error('Base USDC token configuration is missing.');
-	}
+	const { receiveChain, receiveToken, receiveAmount, chainConfig } =
+		assertSupportedUsdcInvoice({
+			receiveChain: invoicePayload.receiveChain,
+			receiveToken: invoicePayload.receiveToken,
+			receiveAmount: invoicePayload.receiveAmount,
+		});
 
 	const invoiceId = `INV-${now}`;
 	const origin = input.origin.replace(/\/$/, '');
@@ -229,9 +229,9 @@ export function createInvoiceFromAgentOutput(input: {
 		invoiceId,
 		merchantAddress: asHexAddress(input.merchantAddress, 'merchantAddress'),
 		receiveChain,
-		receiveChainId,
+		receiveChainId: chainConfig.chainId,
 		receiveToken,
-		receiveTokenAddress: receiveTokenAddress as `0x${string}`,
+		receiveTokenAddress: chainConfig.usdcAddress,
 		receiveAmount,
 		memo: invoicePayload.memo,
 		feePolicy: 'PAYER_PAYS',
@@ -318,7 +318,7 @@ export function summarizePaymentQuote(input: {
 		approvalAddress: stringValue(estimate.approvalAddress) as
 			| `0x${string}`
 			| undefined,
-		routeSummary: `${getChainLabel(input.sourceChainId)} USDC -> Base USDC via ${stringValue(input.rawQuote.tool) ?? 'LI.FI'}`,
+		routeSummary: `${getChainCashierChainLabel(input.sourceChainId)} USDC -> ${getChainCashierChainLabel(input.invoice.receiveChainId)} USDC via ${stringValue(input.rawQuote.tool) ?? 'LI.FI'}`,
 		transactionRequest:
 			typeof input.rawQuote.transactionRequest?.to === 'string' &&
 			typeof input.rawQuote.transactionRequest?.data === 'string'

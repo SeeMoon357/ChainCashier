@@ -23,7 +23,7 @@ export const runtime = 'nodejs';
 
 const merchantInvoiceSchema = z.object({
 	invoice: z.object({
-		receiveChain: z.literal('Base'),
+		receiveChain: z.enum(['Base', 'Arbitrum']),
 		receiveToken: z.literal('USDC'),
 		receiveAmount: z.string(),
 		memo: z.string().optional(),
@@ -93,8 +93,15 @@ export async function POST(request: NextRequest) {
 							return;
 						}
 
-						send({ type: 'thinking', content: 'Parsing merchant invoice goal with GLM-5.1...\n' });
-						send({ type: 'thinking', content: 'Checking supported MVP scope: Base USDC, payer covers cross-chain cost...\n' });
+						send({
+							type: 'thinking',
+							content: 'Parsing merchant invoice goal with GLM-5.1...\n',
+						});
+						send({
+							type: 'thinking',
+							content:
+								'Checking supported scope: Base or Arbitrum USDC, payer covers cross-chain cost...\n',
+						});
 
 						let createdInvoice: Invoice | null = null;
 						try {
@@ -103,8 +110,9 @@ export async function POST(request: NextRequest) {
 								schema: merchantInvoiceSchema,
 								system: [
 									'You are ChainCashier, a checkout planning agent.',
-									'Extract a Base USDC invoice from the merchant request.',
-									'The MVP only supports receiving USDC on Base.',
+									'Extract a USDC invoice from the merchant request.',
+									'Supported merchant receiving chains are Base and Arbitrum.',
+									'Default receiveChain to Base unless the merchant explicitly asks to receive on Arbitrum or Arb.',
 									'Only return an invoice when the merchant explicitly asks to create a payment request.',
 								].join('\n'),
 								prompt: message,
@@ -139,7 +147,7 @@ export async function POST(request: NextRequest) {
 									'好的，我已经生成收款账单。',
 									`商户将收到 **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**。`,
 									`付款链接：${createdInvoice.paymentLink}`,
-									'你可以把这个链接发给付款人。付款人会在独立聊天页里选择来源链，并用自己的钱包确认支付。',
+									'你可以把这个链接发给付款人。付款人会在独立聊天页面里选择来源链，并用自己的钱包确认支付。',
 								].join('\n\n'),
 							),
 						);
@@ -173,7 +181,11 @@ export async function POST(request: NextRequest) {
 						return;
 					}
 
-					send({ type: 'thinking', content: 'Requesting LI.FI quote/toAmount for exact merchant settlement...\n' });
+					send({
+						type: 'thinking',
+						content:
+							'Requesting LI.FI quote/toAmount for exact merchant settlement...\n',
+					});
 					const quoteResult = await createLifiClient().getQuoteToAmount(
 						quoteRequestChunk.request,
 					);
@@ -207,15 +219,29 @@ export async function POST(request: NextRequest) {
 						saveInvoice(updatedInvoice);
 					}
 					send({ type: 'invoice', invoice: updatedInvoice });
-					send({ type: 'quote_request', source: quoteRequestChunk.source, request: quoteRequestChunk.request });
+					send({
+						type: 'quote_request',
+						source: quoteRequestChunk.source,
+						request: quoteRequestChunk.request,
+					});
 					send({ type: 'quote', quote, rawQuote: quoteResult.data });
 					send({ type: 'response', content: '收到。商户要求收到 ' });
-					send({ type: 'response', content: `**${invoice.receiveAmount} USDC on Base**。\n\n` });
-					send({ type: 'response', content: `你选择从 **${quoteRequestChunk.source.label}** 支付。\n\n` });
-					send({ type: 'response', content: `LI.FI 已返回报价：预计你需要支付 **${quote.estimatedFromAmount}** 个 USDC base units。请检查费用和最小到账，然后用钱包确认。` });
 					send({
 						type: 'response',
-						content: '\n\n注意：Agent 不会签名或转账，资金只会在你确认钱包交易后移动。',
+						content: `**${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}**。\n\n`,
+					});
+					send({
+						type: 'response',
+						content: `你选择从 **${quoteRequestChunk.source.label}** 支付。\n\n`,
+					});
+					send({
+						type: 'response',
+						content: `LI.FI 已返回报价：预计你需要支付 **${quote.estimatedFromAmount}** 个 USDC base units。请检查费用和最小到账，然后用钱包确认。`,
+					});
+					send({
+						type: 'response',
+						content:
+							'\n\n注意：Agent 不会签名或转账，资金只会在你确认钱包交易后移动。',
 					});
 					send({ type: 'done' });
 				} catch (error) {

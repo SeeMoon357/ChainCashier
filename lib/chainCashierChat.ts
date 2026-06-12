@@ -4,6 +4,11 @@ import {
 	type PaymentQuoteSummary,
 	type Invoice,
 } from './chainCashier';
+import {
+	CHAINCASHIER_PAYMENT_ROUTES,
+	CHAINCASHIER_USDC_CHAINS,
+	type ChainCashierChainKey,
+} from './chainCashierChains';
 
 export { createInvoiceFromAgentOutput } from './chainCashier';
 
@@ -19,22 +24,15 @@ export type MerchantRequest =
 	| { kind: 'create_invoice'; amount: string };
 
 export const PAYER_SOURCE_OPTIONS: PayerSourceOption[] = [
-	{
-		label: 'Arbitrum USDC',
-		chainId: 42161,
-		tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-	},
-	{
-		label: 'Optimism USDC',
-		chainId: 10,
-		tokenAddress: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
-	},
-	{
-		label: 'Polygon USDC',
-		chainId: 137,
-		tokenAddress: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
-	},
-];
+	CHAINCASHIER_USDC_CHAINS.Arbitrum,
+	CHAINCASHIER_USDC_CHAINS.Base,
+	CHAINCASHIER_USDC_CHAINS.Optimism,
+	CHAINCASHIER_USDC_CHAINS.Polygon,
+].map((chain) => ({
+	label: `${chain.label} USDC`,
+	chainId: chain.chainId,
+	tokenAddress: chain.usdcAddress,
+}));
 
 export type ChainCashierChatChunk =
 	| { type: 'thinking'; content: string }
@@ -59,6 +57,36 @@ function parseMemo(message: string): string {
 	return normalized || 'ChainCashier invoice';
 }
 
+function parseReceiveChain(message: string): 'Base' | 'Arbitrum' {
+	const lowered = message.toLowerCase();
+	if (lowered.includes('arbitrum') || lowered.includes('arb')) {
+		return 'Arbitrum';
+	}
+
+	return 'Base';
+}
+
+function sourceOptionFromChainKey(
+	chainKey: ChainCashierChainKey,
+): PayerSourceOption {
+	const chain = CHAINCASHIER_USDC_CHAINS[chainKey];
+	return {
+		label: `${chain.label} USDC`,
+		chainId: chain.chainId,
+		tokenAddress: chain.usdcAddress,
+	};
+}
+
+function getSupportedSourceOptions(invoice: Invoice): PayerSourceOption[] {
+	const target = invoice.receiveChain as keyof typeof CHAINCASHIER_PAYMENT_ROUTES;
+	const routeSourceKeys = CHAINCASHIER_PAYMENT_ROUTES[target] ?? [];
+	return routeSourceKeys.map(sourceOptionFromChainKey);
+}
+
+function formatSourceOptions(options: PayerSourceOption[]): string {
+	return options.map((option) => option.label).join(', ');
+}
+
 export function resolveMerchantRequest(message: string): MerchantRequest {
 	const normalized = message.trim().toLowerCase();
 	const asksIdentity =
@@ -75,7 +103,7 @@ export function resolveMerchantRequest(message: string): MerchantRequest {
 		normalized.includes('invoice') ||
 		normalized.includes('收款') ||
 		normalized.includes('账单') ||
-		normalized.includes('帳單') ||
+		normalized.includes('帐单') ||
 		normalized.includes('付款链接') ||
 		normalized.includes('payment link') ||
 		normalized.includes('checkout');
@@ -96,7 +124,7 @@ export function buildMerchantGeneralResponse(): ChainCashierChatChunk[] {
 		{
 			type: 'response',
 			content:
-				'我是 ChainCashier，一个面向 Web3 商户的跨链收款 Agent。我可以帮你创建 Base USDC 收款账单、生成付款链接，并让付款人在独立页面选择来源链后通过自己的钱包支付。你可以告诉我收款金额，例如：创建一个 20 USDC 的收款单。',
+				'我是 ChainCashier，一个面向 Web3 商户的跨链收款 Agent。我可以帮你创建 Base 或 Arbitrum USDC 收款账单、生成付款链接，并让付款人在独立页面选择来源链后用自己的钱包确认支付。你可以告诉我收款金额，例如：创建一个 20 USDC 的收款单。',
 		},
 		{ type: 'done' },
 	];
@@ -107,7 +135,7 @@ export function buildMerchantMissingAmountResponse(): ChainCashierChatChunk[] {
 		{
 			type: 'response',
 			content:
-				'可以。我需要先知道收款金额。当前 MVP 支持商户在 Base 收 USDC，例如你可以说：创建一个 20 USDC 的收款单。',
+				'可以。我需要先知道收款金额。当前支持商户收 Base 或 Arbitrum USDC，例如：创建一个 20 USDC 的收款单，或者创建一个收 Arbitrum 的 20 USDC 收款单。',
 		},
 		{ type: 'done' },
 	];
@@ -124,13 +152,14 @@ export function buildMerchantChatCreatedInvoice(input: {
 		return buildMerchantMissingAmountResponse();
 	}
 
+	const receiveChain = parseReceiveChain(input.message);
 	const invoice = createInvoiceFromAgentOutput({
 		merchantAddress: input.merchantAddress,
 		origin: input.origin,
 		now: input.now,
 		agentOutput: {
 			invoice: {
-				receiveChain: 'Base',
+				receiveChain,
 				receiveToken: 'USDC',
 				receiveAmount: amount,
 				memo: parseMemo(input.message),
@@ -145,7 +174,7 @@ export function buildMerchantChatCreatedInvoice(input: {
 		},
 		{
 			type: 'thinking',
-			content: 'Locking merchant address, Base USDC target, amount, and payer-pays fee policy...\n',
+			content: `Locking merchant address, ${invoice.receiveChain} USDC target, amount, and payer-pays fee policy...\n`,
 		},
 		{ type: 'invoice', invoice },
 		{
@@ -153,10 +182,10 @@ export function buildMerchantChatCreatedInvoice(input: {
 			content: [
 				'好的，我已经生成收款账单。',
 				'',
-				`- 商户收款：${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}`,
-				`- 收款地址：${invoice.merchantAddress}`,
-				'- 费用规则：付款人承担跨链成本',
-				`- 付款链接：${invoice.paymentLink}`,
+				`- Merchant receives: ${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}`,
+				`- Merchant address: ${invoice.merchantAddress}`,
+				'- Fee policy: payer covers cross-chain cost',
+				`- Payment link: ${invoice.paymentLink}`,
 				'',
 				'你可以把这个链接发给付款人。付款人会在独立 checkout 聊天页里选择来源链，并通过自己的钱包确认支付。',
 			].join('\n'),
@@ -169,14 +198,17 @@ export function resolvePayerSourceFromMessage(
 	message: string,
 ): PayerSourceOption | null {
 	const lowered = message.toLowerCase();
-	if (lowered.includes('arbitrum') || lowered.includes('arb')) {
-		return PAYER_SOURCE_OPTIONS[0];
-	}
-	if (lowered.includes('optimism') || lowered.includes('op mainnet')) {
-		return PAYER_SOURCE_OPTIONS[1];
-	}
-	if (lowered.includes('polygon') || lowered.includes('matic')) {
-		return PAYER_SOURCE_OPTIONS[2];
+	for (const chain of Object.values(CHAINCASHIER_USDC_CHAINS)) {
+		if (
+			chain.aliases.some((alias) => lowered.includes(alias)) ||
+			lowered.includes(chain.label.toLowerCase())
+		) {
+			return {
+				label: `${chain.label} USDC`,
+				chainId: chain.chainId,
+				tokenAddress: chain.usdcAddress,
+			};
+		}
 	}
 
 	return null;
@@ -187,13 +219,16 @@ export function buildPayerQuotePlan(input: {
 	invoice: Invoice;
 	payerAddress: string;
 }): ChainCashierChatChunk[] {
+	const supportedSources = getSupportedSourceOptions(input.invoice);
 	const source = resolvePayerSourceFromMessage(input.message);
-	if (!source) {
+	if (
+		!source ||
+		!supportedSources.some((option) => option.chainId === source.chainId)
+	) {
 		return [
 			{
 				type: 'response',
-				content:
-					'我还需要知道你想从哪条链支付。当前支持 Arbitrum USDC、Optimism USDC 或 Polygon USDC。',
+				content: `我还需要知道你想从哪条支持的来源链支付。当前这张账单收 ${input.invoice.receiveChain} USDC，支持：${formatSourceOptions(supportedSources)}。`,
 			},
 			{ type: 'done' },
 		];
