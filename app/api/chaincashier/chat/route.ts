@@ -3,7 +3,10 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import {
 	buildMerchantChatCreatedInvoice,
+	buildMerchantGeneralResponse,
+	buildMerchantMissingAmountResponse,
 	buildPayerQuotePlan,
+	resolveMerchantRequest,
 	type ChainCashierChatChunk,
 } from '@/lib/chainCashierChat';
 import {
@@ -40,6 +43,15 @@ function streamResponseText(text: string): ChainCashierChatChunk[] {
 	return chunks;
 }
 
+function sendChunks(
+	send: (payload: ChainCashierChatChunk) => void,
+	chunks: ChainCashierChatChunk[],
+) {
+	for (const chunk of chunks) {
+		send(chunk);
+	}
+}
+
 export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
@@ -66,6 +78,15 @@ export async function POST(request: NextRequest) {
 
 				try {
 					if (role === 'merchant') {
+						const merchantRequest = resolveMerchantRequest(message);
+						if (merchantRequest.kind === 'general') {
+							sendChunks(send, buildMerchantGeneralResponse());
+							return;
+						}
+						if (merchantRequest.kind === 'invoice_missing_amount') {
+							sendChunks(send, buildMerchantMissingAmountResponse());
+							return;
+						}
 						if (!address) {
 							send({ type: 'error', content: 'Connect a merchant wallet first.' });
 							send({ type: 'done' });
@@ -84,6 +105,7 @@ export async function POST(request: NextRequest) {
 									'You are ChainCashier, a checkout planning agent.',
 									'Extract a Base USDC invoice from the merchant request.',
 									'The MVP only supports receiving USDC on Base.',
+									'Only return an invoice when the merchant explicitly asks to create a payment request.',
 								].join('\n'),
 								prompt: message,
 							});
@@ -104,23 +126,23 @@ export async function POST(request: NextRequest) {
 						}
 
 						if (!createdInvoice) {
-							send({ type: 'error', content: 'Could not create invoice.' });
-							send({ type: 'done' });
+							sendChunks(send, buildMerchantMissingAmountResponse());
 							return;
 						}
 
 						saveInvoice(createdInvoice);
 						send({ type: 'invoice', invoice: createdInvoice });
-						for (const chunk of streamResponseText(
-							[
-								'好的，我已经生成收款账单。',
-								`商户将收到 **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**。`,
-								`付款链接：${createdInvoice.paymentLink}`,
-								'你可以把这个链接发给付款人。付款人会在独立聊天页里选择来源链并用自己的钱包确认支付。',
-							].join('\n\n'),
-						)) {
-							send(chunk);
-						}
+						sendChunks(
+							send,
+							streamResponseText(
+								[
+									'好的，我已经生成收款账单。',
+									`商户将收到 **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**。`,
+									`付款链接：${createdInvoice.paymentLink}`,
+									'你可以把这个链接发给付款人。付款人会在独立聊天页里选择来源链，并用自己的钱包确认支付。',
+								].join('\n\n'),
+							),
+						);
 						send({ type: 'done' });
 						return;
 					}
@@ -141,9 +163,7 @@ export async function POST(request: NextRequest) {
 						invoice,
 						payerAddress: address,
 					});
-					for (const chunk of planChunks) {
-						send(chunk);
-					}
+					sendChunks(send, planChunks);
 
 					const quoteRequestChunk = planChunks.find(
 						(chunk) => chunk.type === 'quote_request',

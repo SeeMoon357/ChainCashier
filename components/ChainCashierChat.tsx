@@ -7,10 +7,11 @@ import remarkGfm from 'remark-gfm';
 import { parseAbi } from 'viem';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
-import { CheckCircle2, CircleDashed, Copy, ExternalLink, ReceiptText, Wallet } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleDashed, Copy, ExternalLink, ReceiptText, Wallet } from 'lucide-react';
 import WalletButton from './WalletConnect';
 import type { Invoice, PaymentQuoteSummary, SupportPackage } from '@/lib/chainCashier';
 import type { PayerSourceOption } from '@/lib/chainCashierChat';
+import { splitTypewriterText } from '@/lib/chainCashierStreaming';
 
 const ChatSender = dynamic(() => import('./ChatSender'), {
 	ssr: false,
@@ -37,14 +38,67 @@ type ChatMessage = {
 	supportPackage?: SupportPackage;
 };
 
+type FlowStep = {
+	key: string;
+	title: string;
+	status: 'pending' | 'running' | 'done' | 'failed';
+	note: string;
+};
+
+type PendingEvent =
+	| {
+			type: 'text';
+			messageId: string;
+			field: 'content' | 'reasoning';
+			token: string;
+	  }
+	| {
+			type: 'patch';
+			messageId: string;
+			patch: Partial<ChatMessage>;
+	  };
+
 type StreamPayload =
 	| { type: 'thinking'; content: string }
 	| { type: 'response'; content: string }
 	| { type: 'invoice'; invoice: Invoice }
 	| { type: 'payer_source'; source: PayerSourceOption }
+	| { type: 'quote_request'; source: PayerSourceOption; request: unknown }
 	| { type: 'quote'; quote: PaymentQuoteSummary; rawQuote?: unknown }
 	| { type: 'error'; content: string }
 	| { type: 'done' };
+
+function initialSteps(): FlowStep[] {
+	return [
+		{ key: 'parse', title: 'Merchant Goal Parsed', status: 'pending', note: 'GLM-5.1 turns merchant language into a locked invoice.' },
+		{ key: 'invoice', title: 'Invoice Created', status: 'pending', note: 'Merchant address, Base USDC target, amount, and fee policy are locked.' },
+		{ key: 'link', title: 'Payment Link Generated', status: 'pending', note: 'The payer opens an independent checkout chat from this link.' },
+		{ key: 'source', title: 'Payer Source Selected', status: 'pending', note: 'Payer chooses the source chain and token in chat.' },
+		{ key: 'quote', title: 'LI.FI Quote Requested', status: 'pending', note: 'The app asks LI.FI for a toAmount quote so merchant receives exact Base USDC.' },
+		{ key: 'explain', title: 'Fee & Risk Explained', status: 'pending', note: 'Agent explains payer cost, fee policy, and wallet confirmation boundary.' },
+		{ key: 'wallet', title: 'Wallet Confirmation Required', status: 'pending', note: 'Funds move only after payer signs in their wallet.' },
+		{ key: 'submitted', title: 'Payment Submitted', status: 'pending', note: 'The source transaction hash is saved to the invoice.' },
+		{ key: 'status', title: 'LI.FI Status Tracking', status: 'pending', note: 'The app polls LI.FI status until paid, failed, or refunded.' },
+		{ key: 'receipt', title: 'Receipt Generated', status: 'pending', note: 'Receipt JSON and support package are generated from the evidence.' },
+	];
+}
+
+function updateStep(
+	steps: FlowStep[],
+	key: string,
+	status: FlowStep['status'],
+	note?: string,
+): FlowStep[] {
+	return steps.map((step) =>
+		step.key === key ? { ...step, status, note: note ?? step.note } : step,
+	);
+}
+
+function failRunningStep(steps: FlowStep[], note: string): FlowStep[] {
+	const running = steps.find((step) => step.status === 'running');
+	if (!running) return steps;
+	return updateStep(steps, running.key, 'failed', note);
+}
 
 function invoiceStorageKey(invoiceId: string): string {
 	return `chaincashier:invoice:${invoiceId}`;
@@ -144,6 +198,41 @@ function ReceiptCard({ value }: { value: unknown }) {
 	);
 }
 
+function StatusIcon({ status }: { status: FlowStep['status'] }) {
+	if (status === 'done') return <CheckCircle2 className='h-4 w-4 text-emerald-600' />;
+	if (status === 'failed') return <AlertTriangle className='h-4 w-4 text-rose-600' />;
+	return (
+		<CircleDashed
+			className={status === 'running' ? 'h-4 w-4 text-sky-600' : 'h-4 w-4 text-slate-400'}
+		/>
+	);
+}
+
+function FlowRecorder({ steps }: { steps: FlowStep[] }) {
+	return (
+		<aside className='rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-auto'>
+			<div className='text-sm font-semibold text-slate-700'>Payment Flow Recorder</div>
+			<div className='mt-3 space-y-2'>
+				{steps.map((step) => (
+					<div
+						key={step.key}
+						className='grid grid-cols-[auto_1fr] gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2'
+					>
+						<StatusIcon status={step.status} />
+						<div>
+							<div className='text-sm font-medium'>{step.title}</div>
+							<div className='mt-1 text-xs leading-5 text-slate-600'>{step.note}</div>
+						</div>
+					</div>
+				))}
+			</div>
+			<div className='mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900'>
+				Agent plans. User signs. Wallet executes. LI.FI routes. App tracks. Receipt proves.
+			</div>
+		</aside>
+	);
+}
+
 function initialPrompt(role: ChatRole): string {
 	if (role === 'merchant') {
 		return 'Create an invoice to receive 20 USDC on Base for a Web3 workshop ticket.';
@@ -168,18 +257,25 @@ export default function ChainCashierChat({
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [invoice, setInvoice] = useState<Invoice | null>(null);
 	const [source, setSource] = useState<PayerSourceOption | null>(null);
+	const [steps, setSteps] = useState<FlowStep[]>(initialSteps);
 	const [busy, setBusy] = useState(false);
 	const [paying, setPaying] = useState(false);
 	const [sourceTxHash, setSourceTxHash] = useState<string | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	const messageIdRef = useRef(0);
+	const textQueueRef = useRef<PendingEvent[]>([]);
+	const textTimerRef = useRef<number | null>(null);
+	const completedMessageIdsRef = useRef(new Set<string>());
+	const introducedInvoiceIdsRef = useRef(new Set<string>());
+	const deferredPatchesRef = useRef(new Map<string, Partial<ChatMessage>[]>());
 
 	const title = role === 'merchant' ? 'Merchant Chat' : 'Payer Checkout Chat';
 	const subtitle =
 		role === 'merchant'
 			? 'Ask the agent to create a locked Base USDC invoice.'
 			: 'Tell the agent which source chain you want to pay from.';
+	const starter = useMemo(() => initialPrompt(role), [role]);
 
 	useEffect(() => {
 		if (role !== 'payer' || !initialInvoiceId) return;
@@ -189,10 +285,26 @@ export default function ChainCashierChat({
 				if (payload.success) {
 					setInvoice(payload.invoice);
 					saveInvoiceToBrowser(payload.invoice);
+					setSteps((current) =>
+						updateStep(
+							updateStep(updateStep(current, 'parse', 'done'), 'invoice', 'done'),
+							'link',
+							'done',
+						),
+					);
 					return;
 				}
 				const local = loadInvoiceFromBrowser(initialInvoiceId);
-				if (local) setInvoice(local);
+				if (local) {
+					setInvoice(local);
+					setSteps((current) =>
+						updateStep(
+							updateStep(updateStep(current, 'parse', 'done'), 'invoice', 'done'),
+							'link',
+							'done',
+						),
+					);
+				}
 			})
 			.catch(() => {
 				const local = loadInvoiceFromBrowser(initialInvoiceId);
@@ -206,6 +318,139 @@ export default function ChainCashierChat({
 			behavior: 'smooth',
 		});
 	}, [messages]);
+
+	useEffect(() => {
+		return () => {
+			if (textTimerRef.current) window.clearInterval(textTimerRef.current);
+		};
+	}, []);
+
+	const appendToAssistant = useCallback((id: string, patch: Partial<ChatMessage>) => {
+		setMessages((current) =>
+			current.map((message) =>
+				message.id === id
+					? {
+							...message,
+							...patch,
+							content: patch.content === undefined ? message.content : patch.content,
+							reasoning: patch.reasoning === undefined ? message.reasoning : patch.reasoning,
+						}
+					: message,
+			),
+		);
+	}, []);
+
+	const completeFinishedStreams = useCallback(() => {
+		if (textQueueRef.current.length > 0) return;
+		const doneIds = Array.from(completedMessageIdsRef.current);
+		if (doneIds.length === 0) return;
+		completedMessageIdsRef.current.clear();
+		setMessages((current) =>
+			current.map((message) =>
+				doneIds.includes(message.id) ? { ...message, streaming: false } : message,
+			),
+		);
+	}, []);
+
+	const startTypewriter = useCallback(() => {
+		if (textTimerRef.current) return;
+		textTimerRef.current = window.setInterval(() => {
+			const next = textQueueRef.current.shift();
+			if (!next) {
+				if (textTimerRef.current) {
+					window.clearInterval(textTimerRef.current);
+					textTimerRef.current = null;
+				}
+				completeFinishedStreams();
+				return;
+			}
+			if (next.type === 'patch') {
+				appendToAssistant(next.messageId, next.patch);
+				return;
+			}
+			setMessages((current) =>
+				current.map((message) =>
+					message.id === next.messageId
+						? { ...message, [next.field]: `${message[next.field] ?? ''}${next.token}` }
+						: message,
+				),
+			);
+		}, 18);
+	}, [appendToAssistant, completeFinishedStreams]);
+
+	const enqueueAssistantText = useCallback(
+		(id: string, field: 'content' | 'reasoning', text: string) => {
+			textQueueRef.current.push(
+				...splitTypewriterText(text).map((token) => ({
+					type: 'text' as const,
+					messageId: id,
+					field,
+					token,
+				})),
+			);
+			startTypewriter();
+		},
+		[startTypewriter],
+	);
+
+	const enqueueAssistantPatch = useCallback(
+		(id: string, patch: Partial<ChatMessage>) => {
+			textQueueRef.current.push({ type: 'patch', messageId: id, patch });
+			startTypewriter();
+		},
+		[startTypewriter],
+	);
+
+	const deferAssistantPatch = useCallback((id: string, patch: Partial<ChatMessage>) => {
+		const patches = deferredPatchesRef.current.get(id) ?? [];
+		patches.push(patch);
+		deferredPatchesRef.current.set(id, patches);
+	}, []);
+
+	const flushDeferredPatches = useCallback(
+		(id: string) => {
+			const patches = deferredPatchesRef.current.get(id) ?? [];
+			deferredPatchesRef.current.delete(id);
+			for (const patch of patches) {
+				enqueueAssistantPatch(id, patch);
+			}
+		},
+		[enqueueAssistantPatch],
+	);
+
+	const markAssistantDone = useCallback(
+		(id: string) => {
+			completedMessageIdsRef.current.add(id);
+			completeFinishedStreams();
+		},
+		[completeFinishedStreams],
+	);
+
+	useEffect(() => {
+		if (role !== 'payer' || !invoice) return;
+		if (introducedInvoiceIdsRef.current.has(invoice.invoiceId)) return;
+		introducedInvoiceIdsRef.current.add(invoice.invoiceId);
+
+		const aiId = `ai-${++messageIdRef.current}`;
+		setMessages((current) => [
+			...current,
+			{ id: aiId, role: 'assistant', content: '', reasoning: '', streaming: true },
+		]);
+		enqueueAssistantText(
+			aiId,
+			'content',
+			[
+				'你好，这是一笔 ChainCashier 付款请求。',
+				'',
+				`商户希望收到 **${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}**。`,
+				`收款地址是 \`${invoice.merchantAddress}\`。`,
+				'',
+				'你可以直接告诉我想从哪条链支付，例如：I want to pay with USDC on Arbitrum.',
+			].join('\n'),
+		);
+		enqueueAssistantPatch(aiId, { invoice });
+		markAssistantDone(aiId);
+	}, [enqueueAssistantPatch, enqueueAssistantText, invoice, markAssistantDone, role]);
 
 	useEffect(() => {
 		if (!sourceTxHash || !invoice?.invoiceId) return;
@@ -230,26 +475,20 @@ export default function ChainCashierChat({
 						receipt: payload.invoice.receipt,
 					},
 				]);
+				setSteps((current) =>
+					payload.invoice.receipt
+						? updateStep(
+								updateStep(current, 'status', 'done', 'LI.FI reported the route as completed.'),
+								'receipt',
+								'done',
+								'Receipt JSON is available.',
+							)
+						: updateStep(current, 'status', 'failed', 'LI.FI reported failed/refunded status.'),
+				);
 			}
 		}, 7000);
 		return () => window.clearInterval(timer);
 	}, [invoice?.invoiceId, sourceTxHash]);
-
-	const appendToAssistant = useCallback((id: string, patch: Partial<ChatMessage>) => {
-		setMessages((current) =>
-			current.map((message) =>
-				message.id === id
-					? {
-							...message,
-							...patch,
-							content: patch.content === undefined ? message.content : patch.content,
-							reasoning:
-								patch.reasoning === undefined ? message.reasoning : patch.reasoning,
-						}
-					: message,
-			),
-		);
-	}, []);
 
 	async function sendMessage(raw: string) {
 		const text = raw.trim();
@@ -264,7 +503,7 @@ export default function ChainCashierChat({
 				{
 					id: `ai-${++messageIdRef.current}`,
 					role: 'assistant',
-					content: '我还没有加载到这个账单。请确认 payment link 有效，或让商户重新生成链接。',
+					content: '我还没有加载到账单。请确认 payment link 有效，或让商家重新生成链接。',
 				},
 			]);
 			return;
@@ -275,8 +514,16 @@ export default function ChainCashierChat({
 		abortRef.current = abort;
 		const userId = `user-${++messageIdRef.current}`;
 		const aiId = `ai-${++messageIdRef.current}`;
+		textQueueRef.current = textQueueRef.current.filter((item) => item.messageId !== aiId);
+		completedMessageIdsRef.current.delete(aiId);
+		deferredPatchesRef.current.delete(aiId);
 		setInput('');
 		setBusy(true);
+		setSteps((current) =>
+			role === 'merchant'
+				? updateStep(initialSteps(), 'parse', 'running')
+				: updateStep(current, 'source', 'running'),
+		);
 		setMessages((current) => [
 			...current,
 			{ id: userId, role: 'user', content: text },
@@ -287,12 +534,7 @@ export default function ChainCashierChat({
 			const response = await fetch('/api/chaincashier/chat', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					role,
-					message: text,
-					address,
-					invoice,
-				}),
+				body: JSON.stringify({ role, message: text, address, invoice }),
 				signal: abort.signal,
 			});
 			if (!response.ok || !response.body) {
@@ -312,59 +554,76 @@ export default function ChainCashierChat({
 					const line = event.split('\n').find((item) => item.startsWith('data: '));
 					if (!line) continue;
 					const payload = JSON.parse(line.slice(6)) as StreamPayload;
+
 					if (payload.type === 'thinking') {
-						appendToAssistant(aiId, {
-							reasoning: `${messages.find((item) => item.id === aiId)?.reasoning ?? ''}${payload.content}`,
-						});
-						setMessages((current) =>
-							current.map((item) =>
-								item.id === aiId
-									? { ...item, reasoning: `${item.reasoning ?? ''}${payload.content}` }
-									: item,
-							),
-						);
+						enqueueAssistantText(aiId, 'reasoning', payload.content);
 					}
 					if (payload.type === 'response') {
-						setMessages((current) =>
-							current.map((item) =>
-								item.id === aiId
-									? { ...item, content: `${item.content}${payload.content}` }
-									: item,
-							),
-						);
+						enqueueAssistantText(aiId, 'content', payload.content);
 					}
 					if (payload.type === 'invoice') {
 						setInvoice(payload.invoice);
 						saveInvoiceToBrowser(payload.invoice);
-						appendToAssistant(aiId, { invoice: payload.invoice });
+						deferAssistantPatch(aiId, { invoice: payload.invoice });
+						setSteps((current) =>
+							updateStep(
+								updateStep(
+									updateStep(current, 'parse', 'done', 'Invoice terms were extracted.'),
+									'invoice',
+									'done',
+									`${payload.invoice.receiveAmount} USDC on Base is locked.`,
+								),
+								'link',
+								'done',
+								payload.invoice.paymentLink,
+							),
+						);
 					}
 					if (payload.type === 'payer_source') {
 						setSource(payload.source);
-						appendToAssistant(aiId, { source: payload.source });
+						deferAssistantPatch(aiId, { source: payload.source });
+						setSteps((current) =>
+							updateStep(
+								updateStep(current, 'source', 'done', payload.source.label),
+								'quote',
+								'running',
+							),
+						);
+					}
+					if (payload.type === 'quote_request') {
+						setSteps((current) => updateStep(current, 'quote', 'running', 'Requesting LI.FI quote/toAmount.'));
 					}
 					if (payload.type === 'quote') {
-						appendToAssistant(aiId, {
-							quote: payload.quote,
-							rawQuote: payload.rawQuote,
-						});
+						deferAssistantPatch(aiId, { quote: payload.quote, rawQuote: payload.rawQuote });
+						setSteps((current) =>
+							updateStep(
+								updateStep(current, 'quote', 'done', payload.quote.routeSummary),
+								'explain',
+								'done',
+								'Payer covers cross-chain cost and confirms only in wallet.',
+							),
+						);
 					}
 					if (payload.type === 'error') {
-						appendToAssistant(aiId, { content: payload.content });
+						enqueueAssistantText(aiId, 'content', payload.content);
+						setSteps((current) => failRunningStep(current, payload.content));
 					}
 					if (payload.type === 'done') {
-						appendToAssistant(aiId, { streaming: false });
+						flushDeferredPatches(aiId);
+						markAssistantDone(aiId);
 					}
 				}
 			}
 		} catch (caught) {
 			if (!abort.signal.aborted) {
-				appendToAssistant(aiId, {
-					content: caught instanceof Error ? caught.message : '请求失败，请重试。',
-				});
+				const message = caught instanceof Error ? caught.message : '请求失败，请重试。';
+				enqueueAssistantText(aiId, 'content', message);
+				setSteps((current) => failRunningStep(current, message));
 			}
 		} finally {
 			setBusy(false);
-			appendToAssistant(aiId, { streaming: false });
+			flushDeferredPatches(aiId);
+			markAssistantDone(aiId);
 		}
 	}
 
@@ -376,6 +635,7 @@ export default function ChainCashierChat({
 		if (!targetQuote.transactionRequest) return;
 
 		setPaying(true);
+		setSteps((current) => updateStep(current, 'wallet', 'running'));
 		try {
 			if (chainId !== source.chainId) {
 				await switchChainAsync({ chainId: source.chainId });
@@ -413,6 +673,18 @@ export default function ChainCashierChat({
 				setInvoice(payload.invoice);
 				saveInvoiceToBrowser(payload.invoice);
 			}
+			setSteps((current) =>
+				updateStep(
+					updateStep(
+						updateStep(current, 'wallet', 'done', 'Payer confirmed in wallet.'),
+						'submitted',
+						'done',
+						`Source transaction saved: ${hash}`,
+					),
+					'status',
+					'running',
+				),
+			);
 			setMessages((current) => [
 				...current,
 				{
@@ -422,13 +694,11 @@ export default function ChainCashierChat({
 				},
 			]);
 		} catch (caught) {
+			const message = caught instanceof Error ? caught.message : '钱包交易失败。';
+			setSteps((current) => updateStep(current, 'wallet', 'failed', message));
 			setMessages((current) => [
 				...current,
-				{
-					id: `ai-${++messageIdRef.current}`,
-					role: 'assistant',
-					content: caught instanceof Error ? caught.message : '钱包交易失败。',
-				},
+				{ id: `ai-${++messageIdRef.current}`, role: 'assistant', content: message },
 			]);
 		} finally {
 			setPaying(false);
@@ -446,6 +716,7 @@ export default function ChainCashierChat({
 		if (payload.success) {
 			setInvoice(payload.invoice);
 			saveInvoiceToBrowser(payload.invoice);
+			setSteps((current) => updateStep(current, 'receipt', 'done', 'Receipt and support package are available.'));
 			setMessages((current) => [
 				...current,
 				{
@@ -459,12 +730,10 @@ export default function ChainCashierChat({
 		}
 	}
 
-	const starter = useMemo(() => initialPrompt(role), [role]);
-
 	return (
 		<main className='flex min-h-screen flex-col bg-[#f7f8f3] text-slate-950'>
 			<header className='border-b border-slate-200 bg-white/90 backdrop-blur'>
-				<div className='mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4'>
+				<div className='mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4'>
 					<div>
 						<div className='text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700'>ChainCashier</div>
 						<h1 className='text-xl font-semibold'>{title}</h1>
@@ -474,105 +743,109 @@ export default function ChainCashierChat({
 				</div>
 			</header>
 
-			<div
-				ref={scrollRef}
-				className='mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 overflow-y-auto px-5 py-5'
-			>
-				{messages.length === 0 ? (
-					<div className='mx-auto mt-16 w-full max-w-2xl text-center'>
-						<h2 className='text-2xl font-semibold'>
-							{role === 'merchant' ? '创建跨链收款账单' : '用你的钱包完成跨链付款'}
-						</h2>
-						<p className='mt-3 text-slate-600'>{starter}</p>
-						<button
-							type='button'
-							onClick={() => setInput(starter)}
-							className='mt-5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700'
-						>
-							填入示例
-						</button>
-					</div>
-				) : null}
-
-				{messages.map((message) => (
+			<div className='mx-auto grid min-h-0 w-full max-w-7xl flex-1 gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_340px]'>
+				<section className='flex min-h-[70vh] min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white/55'>
 					<div
-						key={message.id}
-						className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+						ref={scrollRef}
+						className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 sm:px-5'
 					>
-						<div
-							className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${
-								message.role === 'user'
-									? 'bg-slate-950 text-white'
-									: 'border border-slate-200 bg-white text-slate-950'
-							}`}
-						>
-							{message.reasoning ? (
-								<details className='mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-									<summary className='cursor-pointer font-medium'>Thinking / tool trace</summary>
-									<pre className='mt-2 whitespace-pre-wrap'>{message.reasoning}</pre>
-								</details>
-							) : null}
-							<Markdown text={message.content || (message.streaming ? '...' : '')} />
-							{message.invoice ? <InvoiceCard invoice={message.invoice} /> : null}
-							{message.source ? (
-								<div className='mt-3 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800'>
-									<CheckCircle2 className='h-4 w-4' />
-									{message.source.label}
-								</div>
-							) : null}
-							{message.quote ? (
-								<QuoteCard
-									quote={message.quote}
-									disabled={paying}
-									onPay={() => void executePayment(message.quote as PaymentQuoteSummary)}
-								/>
-							) : null}
-							{message.receipt || message.supportPackage ? (
-								<ReceiptCard value={{ receipt: message.receipt, supportPackage: message.supportPackage }} />
-							) : null}
-							{message.streaming ? (
-								<div className='mt-2 inline-flex items-center gap-2 text-xs text-slate-500'>
-									<CircleDashed className='h-3 w-3' />
-									streaming
-								</div>
-							) : null}
-						</div>
-					</div>
-				))}
-			</div>
+						{messages.length === 0 ? (
+							<div className='mx-auto mt-16 w-full max-w-2xl text-center'>
+								<h2 className='text-2xl font-semibold'>
+									{role === 'merchant' ? '创建跨链收款账单' : '用你的钱包完成跨链付款'}
+								</h2>
+								<p className='mt-3 text-slate-600'>{starter}</p>
+								<button
+									type='button'
+									onClick={() => setInput(starter)}
+									className='mt-5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700'
+								>
+									填入示例
+								</button>
+							</div>
+						) : null}
 
-			<div className='border-t border-slate-200 bg-white/90 px-5 py-4'>
-				<div className='mx-auto max-w-5xl'>
-					{role === 'payer' && invoice ? (
-						<div className='mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-							<span>Invoice: {invoice.invoiceId} | Merchant receives {invoice.receiveAmount} USDC on Base</span>
-							<button
-								type='button'
-								onClick={generateReceiptPackage}
-								className='inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 font-medium'
+						{messages.map((message) => (
+							<div
+								key={message.id}
+								className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
 							>
-								<ReceiptText className='h-3 w-3' />
-								Generate receipt package
-							</button>
+								<div
+									className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${
+										message.role === 'user'
+											? 'bg-slate-950 text-white'
+											: 'border border-slate-200 bg-white text-slate-950'
+									}`}
+								>
+									{message.reasoning ? (
+										<details className='mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+											<summary className='cursor-pointer font-medium'>Thinking / tool trace</summary>
+											<pre className='mt-2 whitespace-pre-wrap'>{message.reasoning}</pre>
+										</details>
+									) : null}
+									<Markdown text={message.content || (message.streaming ? '...' : '')} />
+									{message.invoice ? <InvoiceCard invoice={message.invoice} /> : null}
+									{message.source ? (
+										<div className='mt-3 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800'>
+											<CheckCircle2 className='h-4 w-4' />
+											{message.source.label}
+										</div>
+									) : null}
+									{message.quote ? (
+										<QuoteCard
+											quote={message.quote}
+											disabled={paying}
+											onPay={() => void executePayment(message.quote as PaymentQuoteSummary)}
+										/>
+									) : null}
+									{message.receipt || message.supportPackage ? (
+										<ReceiptCard value={{ receipt: message.receipt, supportPackage: message.supportPackage }} />
+									) : null}
+									{message.streaming ? (
+										<div className='mt-2 inline-flex items-center gap-2 text-xs text-slate-500'>
+											<CircleDashed className='h-3 w-3' />
+											streaming
+										</div>
+									) : null}
+								</div>
+							</div>
+						))}
+					</div>
+
+					<div className='border-t border-slate-200 bg-white/90 px-4 py-4 sm:px-5'>
+						{role === 'payer' && invoice ? (
+							<div className='mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+								<span>Invoice: {invoice.invoiceId} | Merchant receives {invoice.receiveAmount} USDC on Base</span>
+								<button
+									type='button'
+									onClick={generateReceiptPackage}
+									className='inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 font-medium'
+								>
+									<ReceiptText className='h-3 w-3' />
+									Generate receipt package
+								</button>
+							</div>
+						) : null}
+						<div className='intentlens-composer-shell rounded-[20px] p-1'>
+							<ChatSender
+								value={input}
+								onChangeAction={setInput}
+								onSubmitAction={sendMessage}
+								loading={busy}
+								onCancelAction={() => {
+									abortRef.current?.abort();
+									setBusy(false);
+								}}
+							/>
 						</div>
-					) : null}
-					<div className='intentlens-composer-shell rounded-[20px] p-1'>
-						<ChatSender
-							value={input}
-							onChangeAction={setInput}
-							onSubmitAction={sendMessage}
-							loading={busy}
-							onCancelAction={() => {
-								abortRef.current?.abort();
-								setBusy(false);
-							}}
-						/>
+						<div className='mt-2 flex items-center gap-2 text-xs text-slate-500'>
+							<Copy className='h-3 w-3' />
+							Agent plans. User signs. Wallet executes. LI.FI routes. App tracks.
+						</div>
 					</div>
-					<div className='mt-2 flex items-center gap-2 text-xs text-slate-500'>
-						<Copy className='h-3 w-3' />
-						Agent plans. User signs. Wallet executes. LI.FI routes. App tracks.
-					</div>
-				</div>
+				</section>
+
+				<FlowRecorder steps={steps} />
 			</div>
 		</main>
 	);

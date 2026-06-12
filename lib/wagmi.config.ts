@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { createConfig, http, injected } from 'wagmi';
+import { createConfig, createStorage, http, injected, type Config } from 'wagmi';
 import {
 	mainnet,
 	base,
@@ -24,18 +24,33 @@ const chains = [
 
 const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID;
 
-export const wagmiConfig = projectId
-	? getDefaultConfig({
+export type WalletRole = 'merchant' | 'payer';
+
+const transports = Object.fromEntries(
+	chains.map((chain) => [chain.id, http()]),
+) as Record<(typeof chains)[number]['id'], ReturnType<typeof http>>;
+
+export function createChainCashierWagmiConfig(role: WalletRole): Config {
+	const storage = createStorage({
+		key: `chaincashier.${role}.wagmi`,
+		storage: typeof window === 'undefined' ? undefined : window.localStorage,
+	});
+
+	return projectId
+		? getDefaultConfig({
 			appName: 'ChainCashier',
 			projectId,
 			chains,
+			storage,
 			ssr: true,
 		})
-	: createConfig({
+		: createConfig({
 			chains,
 			connectors: [injected()],
-			transports: Object.fromEntries(
-				chains.map((chain) => [chain.id, http()]),
-			) as Record<(typeof chains)[number]['id'], ReturnType<typeof http>>,
+			storage,
+			transports,
 			ssr: true,
 		});
+}
+
+export const wagmiConfig = createChainCashierWagmiConfig('merchant');

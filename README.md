@@ -26,6 +26,8 @@ This project targets the Z.AI Web3 x Long-Horizon Task track.
 9. The app saves `sourceTxHash` and polls LI.FI status.
 10. When LI.FI reports completion, ChainCashier generates a receipt JSON and support package.
 
+The right-side Payment Flow Recorder mirrors the long-horizon task state: parsing, invoice creation, payment link, source selection, LI.FI quote, wallet confirmation, status tracking, and receipt generation.
+
 ## Tech Stack
 
 - Next.js 16 / React 19 / TypeScript
@@ -50,6 +52,17 @@ NEXT_PUBLIC_WC_PROJECT_ID=
 
 `NEXT_PUBLIC_WC_PROJECT_ID` is required for RainbowKit to show full multi-brand wallet options through WalletConnect. Without it, Wagmi falls back to injected browser wallets.
 
+## Wallet Boundary
+
+Merchant and payer pages use separate Wagmi storage keys:
+
+- Merchant: `chaincashier.merchant.wagmi`
+- Payer: `chaincashier.payer.wagmi`
+
+This reduces app-level wallet cache overlap. After the merchant creates an invoice, the payer flow reads the locked merchant address from the invoice, so checkout does not require the merchant wallet to remain connected.
+
+This does not override injected wallet extension behavior. The same Chrome profile and the same MetaMask extension still share global account/disconnect state. For demos, use a separate browser profile, incognito window, Edge, a phone WalletConnect wallet, or another independent wallet environment for the payer.
+
 ## Run Locally
 
 ```bash
@@ -65,15 +78,16 @@ Use a small real mainnet amount only.
 
 1. Open `/` with the merchant wallet connected.
 2. Send: `Create an invoice to receive 20 USDC on Base for a Web3 workshop ticket.`
-3. Copy the generated `/pay/[invoiceId]` link.
-4. Open that link in another browser profile, incognito window, phone wallet browser, or after switching wallet account.
-5. Connect the payer wallet.
-6. Send: `I want to pay with USDC on Arbitrum.`
-7. Review the streamed reasoning/tool trace and LI.FI quote card.
-8. Click `Approve & Pay With Wallet`.
-9. Confirm approval if the wallet asks.
-10. Confirm the route transaction.
-11. Wait for LI.FI status polling to generate the receipt.
+3. Watch the typed streaming response and the right-side Payment Flow Recorder.
+4. Copy the generated `/pay/[invoiceId]` link.
+5. Open that link in another browser profile, incognito window, phone wallet browser, or independent wallet environment.
+6. Connect the payer wallet.
+7. Send: `I want to pay with USDC on Arbitrum.`
+8. Review the streamed reasoning/tool trace and LI.FI quote card.
+9. Click `Approve & Pay With Wallet`.
+10. Confirm approval if the wallet asks.
+11. Confirm the route transaction.
+12. Wait for LI.FI status polling to generate the receipt.
 
 ## Safety Boundaries
 
@@ -88,10 +102,12 @@ Use a small real mainnet amount only.
 
 ## Important Files
 
-- `components/ChainCashierChat.tsx`: ChatGPT-style merchant and payer chat UI.
+- `components/ChainCashierChat.tsx`: ChatGPT-style merchant/payer chat UI, typewriter streaming, and the right-side flow recorder.
+- `lib/chainCashierStreaming.ts`: splits backend semantic chunks into typewriter tokens for the UI.
 - `lib/chainCashier.ts`: invoice model, quote request builder, quote safety validation, receipt/support package logic.
 - `lib/chainCashierChat.ts`: chat stream planning helpers and payer source parsing.
 - `lib/chainCashierStore.ts`: local JSON invoice store for separated merchant/payer sessions.
+- `lib/wagmi.config.ts`: RainbowKit/Wagmi wallet configuration with role-scoped storage.
 - `lib/agentConfig.ts` and `lib/agentClient.ts`: GLM-5.1 / Z.AI model configuration.
 - `lib/lifiClient.ts`: LI.FI quote/status client.
 - `app/api/chaincashier/chat/route.ts`: SSE streaming chat endpoint.

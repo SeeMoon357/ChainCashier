@@ -13,6 +13,11 @@ export type PayerSourceOption = {
 	tokenAddress: `0x${string}`;
 };
 
+export type MerchantRequest =
+	| { kind: 'general' }
+	| { kind: 'invoice_missing_amount' }
+	| { kind: 'create_invoice'; amount: string };
+
 export const PAYER_SOURCE_OPTIONS: PayerSourceOption[] = [
 	{
 		label: 'Arbitrum USDC',
@@ -45,13 +50,67 @@ export type ChainCashierChatChunk =
 	| { type: 'error'; content: string }
 	| { type: 'done' };
 
-function parseAmount(message: string): string {
-	return message.match(/(\d+(?:\.\d+)?)\s*USDC/i)?.[1] ?? '20';
+function parseAmount(message: string): string | null {
+	return message.match(/(\d+(?:\.\d+)?)\s*(?:USDC|U|美元|刀)?/i)?.[1] ?? null;
 }
 
 function parseMemo(message: string): string {
 	const normalized = message.replace(/\s+/g, ' ').trim();
 	return normalized || 'ChainCashier invoice';
+}
+
+export function resolveMerchantRequest(message: string): MerchantRequest {
+	const normalized = message.trim().toLowerCase();
+	const asksIdentity =
+		normalized.includes('你是谁') ||
+		normalized.includes('who are you') ||
+		normalized.includes('what are you') ||
+		normalized.includes('介绍一下') ||
+		normalized.includes('你能做什么');
+	if (asksIdentity) {
+		return { kind: 'general' };
+	}
+
+	const invoiceIntent =
+		normalized.includes('invoice') ||
+		normalized.includes('收款') ||
+		normalized.includes('账单') ||
+		normalized.includes('帳單') ||
+		normalized.includes('付款链接') ||
+		normalized.includes('payment link') ||
+		normalized.includes('checkout');
+	if (!invoiceIntent) {
+		return { kind: 'general' };
+	}
+
+	const amount = parseAmount(message);
+	if (!amount) {
+		return { kind: 'invoice_missing_amount' };
+	}
+
+	return { kind: 'create_invoice', amount };
+}
+
+export function buildMerchantGeneralResponse(): ChainCashierChatChunk[] {
+	return [
+		{
+			type: 'response',
+			content:
+				'我是 ChainCashier，一个面向 Web3 商户的跨链收款 Agent。我可以帮你创建 Base USDC 收款账单、生成付款链接，并让付款人在独立页面选择来源链后通过自己的钱包支付。你可以告诉我收款金额，例如：创建一个 20 USDC 的收款单。',
+		},
+		{ type: 'done' },
+	];
+}
+
+export function buildMerchantMissingAmountResponse(): ChainCashierChatChunk[] {
+	return [
+		{
+			type: 'response',
+			content:
+				'可以。我需要先知道收款金额。当前 MVP 支持商户在 Base 收 USDC，例如你可以说：创建一个 20 USDC 的收款单。',
+		},
+		{ type: 'done' },
+	];
 }
 
 export function buildMerchantChatCreatedInvoice(input: {
@@ -60,6 +119,11 @@ export function buildMerchantChatCreatedInvoice(input: {
 	origin: string;
 	now?: number;
 }): ChainCashierChatChunk[] {
+	const amount = parseAmount(input.message);
+	if (!amount) {
+		return buildMerchantMissingAmountResponse();
+	}
+
 	const invoice = createInvoiceFromAgentOutput({
 		merchantAddress: input.merchantAddress,
 		origin: input.origin,
@@ -68,7 +132,7 @@ export function buildMerchantChatCreatedInvoice(input: {
 			invoice: {
 				receiveChain: 'Base',
 				receiveToken: 'USDC',
-				receiveAmount: parseAmount(input.message),
+				receiveAmount: amount,
 				memo: parseMemo(input.message),
 			},
 		},
@@ -91,10 +155,10 @@ export function buildMerchantChatCreatedInvoice(input: {
 				'',
 				`- 商户收款：${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}`,
 				`- 收款地址：${invoice.merchantAddress}`,
-				`- 费用规则：付款人承担跨链成本`,
+				'- 费用规则：付款人承担跨链成本',
 				`- 付款链接：${invoice.paymentLink}`,
 				'',
-				'你可以把这个链接发给付款人。付款人会在独立 checkout 聊天页里选择来源链并通过自己的钱包确认支付。',
+				'你可以把这个链接发给付款人。付款人会在独立 checkout 聊天页里选择来源链，并通过自己的钱包确认支付。',
 			].join('\n'),
 		},
 		{ type: 'done' },

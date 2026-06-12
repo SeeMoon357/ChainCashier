@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
 	RainbowKitProvider,
 	ConnectButton,
@@ -9,7 +10,7 @@ import {
 } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { wagmiConfig } from '@/lib/wagmi.config';
+import { createChainCashierWagmiConfig, type WalletRole } from '@/lib/wagmi.config';
 import { useTheme } from 'next-themes';
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -25,7 +26,13 @@ export function WalletConnectProvider({
 	children: React.ReactNode;
 }) {
 	const { theme } = useTheme();
+	const pathname = usePathname();
 	const [mounted, setMounted] = useState(false);
+	const walletRole: WalletRole = pathname?.startsWith('/pay/') ? 'payer' : 'merchant';
+	const wagmiConfig = useMemo(
+		() => createChainCashierWagmiConfig(walletRole),
+		[walletRole],
+	);
 
 	useEffect(() => {
 		const frame = window.requestAnimationFrame(() => setMounted(true));

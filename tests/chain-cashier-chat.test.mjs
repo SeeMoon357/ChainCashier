@@ -24,6 +24,29 @@ test('buildMerchantChatCreatedInvoice returns streamed chunks with invoice and p
 	assert.match(chunks[3].content, /付款链接/);
 });
 
+test('resolveMerchantRequest routes identity questions away from invoice creation', async () => {
+	const { resolveMerchantRequest } = await loadTsModule(
+		'./lib/chainCashierChat.ts',
+	);
+
+	assert.deepEqual(resolveMerchantRequest('你是谁'), { kind: 'general' });
+	assert.deepEqual(resolveMerchantRequest('who are you?'), { kind: 'general' });
+});
+
+test('resolveMerchantRequest requires an amount before invoice creation', async () => {
+	const { resolveMerchantRequest } = await loadTsModule(
+		'./lib/chainCashierChat.ts',
+	);
+
+	assert.deepEqual(resolveMerchantRequest('帮我生成一个收款单'), {
+		kind: 'invoice_missing_amount',
+	});
+	assert.deepEqual(resolveMerchantRequest('Create an invoice to receive 20 USDC on Base.'), {
+		kind: 'create_invoice',
+		amount: '20',
+	});
+});
+
 test('resolvePayerSourceFromMessage recognizes supported source chains', async () => {
 	const { resolvePayerSourceFromMessage } = await loadTsModule(
 		'./lib/chainCashierChat.ts',
