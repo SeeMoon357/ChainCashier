@@ -294,7 +294,11 @@ function FlowRecorder({
 										</div>
 									))
 							) : (
-								<div>No evidence recorded yet.</div>
+								<div>
+									{step.status === 'pending'
+										? 'Waiting for this step to run.'
+										: 'No evidence was emitted for this completed step.'}
+								</div>
 							)}
 						</div>
 					</details>
@@ -395,6 +399,32 @@ export default function ChainCashierChat({
 				if (payload.success) {
 					setInvoice(payload.invoice);
 					saveInvoiceToBrowser(payload.invoice);
+					recordRunEvent(
+						createRunEvent({
+							step: 'plan',
+							status: 'completed',
+							summary: 'Resumed payer checkout from an existing locked invoice.',
+							outputSummary: payload.invoice.invoiceId,
+						}),
+					);
+					recordRunEvent(
+						createRunEvent({
+							step: 'invoice',
+							status: 'completed',
+							summary: 'Loaded locked invoice for payer checkout.',
+							outputSummary: `${payload.invoice.invoiceId}: ${payload.invoice.receiveAmount} ${payload.invoice.receiveToken} on ${payload.invoice.receiveChain}`,
+							artifact: 'locked invoice',
+						}),
+					);
+					recordRunEvent(
+						createRunEvent({
+							step: 'link',
+							status: 'completed',
+							summary: 'Payer opened the independent checkout link.',
+							outputSummary: payload.invoice.paymentLink,
+							artifact: 'payment link',
+						}),
+					);
 					setSteps((current) =>
 						updateStep(
 							updateStep(updateStep(current, 'parse', 'done'), 'invoice', 'done'),
@@ -407,6 +437,32 @@ export default function ChainCashierChat({
 				const local = loadInvoiceFromBrowser(initialInvoiceId);
 				if (local) {
 					setInvoice(local);
+					recordRunEvent(
+						createRunEvent({
+							step: 'plan',
+							status: 'completed',
+							summary: 'Resumed payer checkout from an invoice stored in this browser.',
+							outputSummary: local.invoiceId,
+						}),
+					);
+					recordRunEvent(
+						createRunEvent({
+							step: 'invoice',
+							status: 'completed',
+							summary: 'Loaded locked invoice from browser storage for payer checkout.',
+							outputSummary: `${local.invoiceId}: ${local.receiveAmount} ${local.receiveToken} on ${local.receiveChain}`,
+							artifact: 'locked invoice',
+						}),
+					);
+					recordRunEvent(
+						createRunEvent({
+							step: 'link',
+							status: 'completed',
+							summary: 'Payer opened the independent checkout link.',
+							outputSummary: local.paymentLink,
+							artifact: 'payment link',
+						}),
+					);
 					setSteps((current) =>
 						updateStep(
 							updateStep(updateStep(current, 'parse', 'done'), 'invoice', 'done'),
@@ -418,9 +474,28 @@ export default function ChainCashierChat({
 			})
 			.catch(() => {
 				const local = loadInvoiceFromBrowser(initialInvoiceId);
-				if (local) setInvoice(local);
+				if (local) {
+					setInvoice(local);
+					recordRunEvent(
+						createRunEvent({
+							step: 'plan',
+							status: 'completed',
+							summary: 'Resumed payer checkout from an invoice stored in this browser.',
+							outputSummary: local.invoiceId,
+						}),
+					);
+					recordRunEvent(
+						createRunEvent({
+							step: 'invoice',
+							status: 'completed',
+							summary: 'Loaded locked invoice from browser storage for payer checkout.',
+							outputSummary: `${local.invoiceId}: ${local.receiveAmount} ${local.receiveToken} on ${local.receiveChain}`,
+							artifact: 'locked invoice',
+						}),
+					);
+				}
 			});
-	}, [initialInvoiceId, role]);
+	}, [initialInvoiceId, recordRunEvent, role]);
 
 	useEffect(() => {
 		scrollRef.current?.scrollTo({

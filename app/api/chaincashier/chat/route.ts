@@ -140,15 +140,46 @@ export async function POST(request: NextRequest) {
 						}
 
 						saveInvoice(createdInvoice);
+						send({
+							type: 'run_event',
+							event: createRunEvent({
+								step: 'plan',
+								status: 'completed',
+								summary: 'GLM-5.1 parsed the merchant goal into a checkout plan.',
+								tool: 'GLM-5.1 structured generation',
+								inputSummary: message,
+								outputSummary: `${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}`,
+							}),
+						});
+						send({
+							type: 'run_event',
+							event: createRunEvent({
+								step: 'invoice',
+								status: 'completed',
+								summary: 'Locked invoice terms: merchant address, settlement chain, token, amount, and fee policy.',
+								outputSummary: `${createdInvoice.invoiceId}: ${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}`,
+								artifact: 'locked invoice',
+							}),
+						});
 						send({ type: 'invoice', invoice: createdInvoice });
+						send({
+							type: 'run_event',
+							event: createRunEvent({
+								step: 'link',
+								status: 'completed',
+								summary: 'Generated an independent payer checkout link.',
+								outputSummary: createdInvoice.paymentLink,
+								artifact: 'payment link',
+							}),
+						});
 						sendChunks(
 							send,
 							streamResponseText(
 								[
-									'好的，我已经生成收款账单。',
-									`商户将收到 **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**。`,
-									`付款链接：${createdInvoice.paymentLink}`,
-									'你可以把这个链接发给付款人。付款人会在独立聊天页面里选择来源链，并用自己的钱包确认支付。',
+									'Done. I created the payment invoice.',
+									`Merchant will receive **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**.`,
+									`Payment link: ${createdInvoice.paymentLink}`,
+									'Send this link to the payer. They will choose a supported source chain in the independent checkout chat and confirm payment with their own wallet.',
 								].join('\n\n'),
 							),
 						);
