@@ -11,6 +11,7 @@ import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Download, ExternalLink
 import WalletButton from './WalletConnect';
 import type { Invoice, PaymentQuoteSummary, SupportPackage } from '@/lib/chainCashier';
 import type { PayerSourceOption } from '@/lib/chainCashierChat';
+import { getChainCashierWalletChain } from '@/lib/chainCashierWalletChains';
 import {
 	buildAgentRunLog,
 	createRunEvent,
@@ -857,6 +858,10 @@ export default function ChainCashierChat({
 			}),
 		);
 		try {
+			const sourceChain = getChainCashierWalletChain(source.chainId);
+			if (!sourceChain) {
+				throw new Error(`Unsupported payer source chain: ${source.chainId}`);
+			}
 			if (chainId !== source.chainId) {
 				await switchChainAsync({ chainId: source.chainId });
 			}
@@ -867,7 +872,7 @@ export default function ChainCashierChat({
 					functionName: 'approve',
 					args: [targetQuote.approvalAddress, BigInt(targetQuote.estimatedFromAmount)],
 					account: address,
-					chain: undefined,
+					chain: sourceChain,
 				});
 				await publicClient.waitForTransactionReceipt({ hash: approvalHash });
 			}
@@ -876,7 +881,7 @@ export default function ChainCashierChat({
 				to: targetQuote.transactionRequest.to,
 				data: targetQuote.transactionRequest.data,
 				value: BigInt(targetQuote.transactionRequest.value ?? '0'),
-				chain: undefined,
+				chain: sourceChain,
 			});
 			setSourceTxHash(hash);
 			recordRunEvent(

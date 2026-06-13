@@ -21,6 +21,7 @@ import type {
 	PaymentQuoteSummary,
 	SupportPackage,
 } from '@/lib/chainCashier';
+import { getChainCashierWalletChain } from '@/lib/chainCashierWalletChains';
 
 type FlowStep = {
 	key: string;
@@ -428,6 +429,10 @@ export default function ChainCashierDemo({
 		setError(null);
 		try {
 			setSteps((current) => updateStep(current, 'wallet', 'running'));
+			const sourceChain = getChainCashierWalletChain(selectedSource.chainId);
+			if (!sourceChain) {
+				throw new Error(`Unsupported payer source chain: ${selectedSource.chainId}`);
+			}
 			if (chainId !== selectedSource.chainId) {
 				await switchChainAsync({ chainId: selectedSource.chainId });
 			}
@@ -438,7 +443,7 @@ export default function ChainCashierDemo({
 					abi: erc20Abi,
 					functionName: 'approve',
 					args: [quote.approvalAddress, BigInt(quote.estimatedFromAmount)],
-					chain: undefined,
+					chain: sourceChain,
 					account: address,
 				});
 				await publicClient.waitForTransactionReceipt({ hash: approvalHash });
@@ -449,7 +454,7 @@ export default function ChainCashierDemo({
 				to: quote.transactionRequest.to,
 				data: quote.transactionRequest.data,
 				value: BigInt(quote.transactionRequest.value ?? '0'),
-				chain: undefined,
+				chain: sourceChain,
 			});
 			setSourceTxHash(hash);
 			setSteps((current) =>
