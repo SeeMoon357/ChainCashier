@@ -294,23 +294,23 @@ export async function POST(request: NextRequest) {
 						request: quoteRequestChunk.request,
 					});
 					send({ type: 'quote', quote, rawQuote: quoteResult.data });
-					send({ type: 'response', content: 'Received. The merchant requests ' });
+					send({ type: 'response', content: '收到。商户要求收到 ' });
 					send({
 						type: 'response',
-						content: `**${updatedInvoice.receiveAmount} ${updatedInvoice.receiveToken} on ${updatedInvoice.receiveChain}**.` + '\n\n',
+						content: `**${updatedInvoice.receiveAmount} ${updatedInvoice.receiveToken} on ${updatedInvoice.receiveChain}**。` + '\n\n',
 					});
 					send({
 						type: 'response',
-						content: `You selected **${quoteRequestChunk.source.label}** as the payer source.` + '\n\n',
+						content: `你选择从 **${quoteRequestChunk.source.label}** 支付。` + '\n\n',
 					});
 					send({
 						type: 'response',
-						content: `LI.FI selected the fastest stablecoin route via **${quote.toolName ?? quote.tool ?? 'LI.FI'}** with estimated route time **${quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s` }**. Estimated payer cost is **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**. Please review fees and minimum received, then confirm in your wallet.`,
+						content: `LI.FI 已选择最快的稳定币路线：**${quote.toolName ?? quote.tool ?? 'LI.FI'}**，预估耗时 **${quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s` }**。付款人预计支付 **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**。请检查费用和最低到账金额，然后在钱包中确认。`,
 					});
 					send({
 						type: 'response',
 						content:
-							'\n\nNote: Agent never signs or transfers funds. Funds move only after you confirm the wallet transaction.',
+							'\n\n注意：Agent 不会签名或转账，资金只会在你确认钱包交易后移动。',
 					});
 					send({ type: 'done' });
 				} catch (error) {

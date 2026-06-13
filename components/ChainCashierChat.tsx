@@ -78,17 +78,17 @@ type StreamPayload =
 
 function initialSteps(): FlowStep[] {
 	return [
-		{ key: 'parse', title: 'Merchant Goal Parsed', status: 'pending', note: 'GLM-5.1 turns merchant language into a locked invoice.' },
-		{ key: 'invoice', title: 'Invoice Created', status: 'pending', note: 'Merchant address, settlement chain, amount, and fee policy are locked.' },
-		{ key: 'link', title: 'Payment Link Generated', status: 'pending', note: 'The payer opens an independent checkout chat from this link.' },
-		{ key: 'source', title: 'Payer Source Selected', status: 'pending', note: 'Payer chooses the source chain and token in chat.' },
-		{ key: 'quote', title: 'LI.FI Quote Requested', status: 'pending', note: 'The app asks LI.FI for a toAmount quote so merchant receives the exact target USDC.' },
-		{ key: 'validate', title: 'Quote Safety Validated', status: 'pending', note: 'Agent checks target address, chain, token, and amount before wallet execution.' },
-		{ key: 'explain', title: 'Fee & Risk Explained', status: 'pending', note: 'Agent explains payer cost, fee policy, and wallet confirmation boundary.' },
-		{ key: 'wallet', title: 'Wallet Confirmation Required', status: 'pending', note: 'Funds move only after payer signs in their wallet.' },
-		{ key: 'submitted', title: 'Payment Submitted', status: 'pending', note: 'The source transaction hash is saved to the invoice.' },
-		{ key: 'status', title: 'LI.FI Status Tracking', status: 'pending', note: 'The app polls LI.FI status until paid, failed, or refunded.' },
-		{ key: 'receipt', title: 'Receipt Generated', status: 'pending', note: 'Receipt JSON and support package are generated from the evidence.' },
+		{ key: 'parse', title: '商户目标解析', status: 'pending', note: 'GLM-5.1 将商户自然语言转换成锁定账单。' },
+		{ key: 'invoice', title: '账单已创建', status: 'pending', note: '商户地址、结算链、金额和费用策略已锁定。' },
+		{ key: 'link', title: '付款链接已生成', status: 'pending', note: '付款人通过独立 checkout 链接进入付款聊天。' },
+		{ key: 'source', title: '付款来源已选择', status: 'pending', note: '付款人在聊天中选择来源链和 token。' },
+		{ key: 'quote', title: 'LI.FI 报价已请求', status: 'pending', note: '应用请求 LI.FI toAmount 报价，确保商户收到精确目标金额。' },
+		{ key: 'validate', title: '报价安全校验', status: 'pending', note: 'Agent 在钱包执行前校验目标地址、链、token 和金额。' },
+		{ key: 'explain', title: '费用与风险说明', status: 'pending', note: 'Agent 解释付款人成本、费用策略和钱包确认边界。' },
+		{ key: 'wallet', title: '等待钱包确认', status: 'pending', note: '只有付款人在钱包中签名后，资金才会移动。' },
+		{ key: 'submitted', title: '付款交易已提交', status: 'pending', note: '来源链交易哈希已保存到账单。' },
+		{ key: 'status', title: 'LI.FI 状态追踪', status: 'pending', note: '应用轮询 LI.FI 状态，直到完成、失败或退款。' },
+		{ key: 'receipt', title: '收据已生成', status: 'pending', note: '根据付款证据生成 receipt JSON 和支持材料。' },
 	];
 }
 
@@ -130,6 +130,19 @@ function failRunningStep(steps: FlowStep[], note: string): FlowStep[] {
 	return updateStep(steps, running.key, 'failed', note);
 }
 
+function formatWalletErrorMessage(message: string): string {
+	if (/user rejected|user denied|denied transaction signature|rejected the request/i.test(message)) {
+		return '你取消了钱包确认，资金没有移动。可以重新点击按钮，再在钱包里确认交易。';
+	}
+	if (/does not match the target chain|current chain/i.test(message)) {
+		return '当前钱包网络和交易要求的来源链不一致。请切换到付款来源链后重试。';
+	}
+	if (message.length > 240) {
+		return `${message.slice(0, 240)}...`;
+	}
+	return message;
+}
+
 function invoiceStorageKey(invoiceId: string): string {
 	return `chaincashier:invoice:${invoiceId}`;
 }
@@ -168,11 +181,11 @@ function Markdown({ text }: { text: string }) {
 
 function InvoiceCard({ invoice }: { invoice: Invoice }) {
 	return (
-		<div className='mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950'>
+		<div className='mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950 break-words'>
 			<div className='font-semibold'>{invoice.invoiceId}</div>
-			<div className='mt-1'>Merchant receives: {invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</div>
-			<div>Merchant address: <span className='break-all'>{invoice.merchantAddress}</span></div>
-			<div>Fee policy: {invoice.feePolicy}</div>
+			<div className='mt-1'>商户收款：{invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</div>
+			<div>商户地址：<span className='break-all'>{invoice.merchantAddress}</span></div>
+			<div>费用策略：付款人承担跨链成本</div>
 			<a
 				href={invoice.paymentLink}
 				className='mt-2 inline-flex items-center gap-1 break-all font-medium text-emerald-800 underline'
@@ -194,17 +207,17 @@ function QuoteCard({
 	disabled: boolean;
 }) {
 	return (
-		<div className='mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm'>
-			<div className='font-semibold'>LI.FI quote</div>
-			<div className='mt-2'>Payer pays estimated: {formatUnits(quote.estimatedFromAmount)} USDC</div>
-			<div>Merchant target amount: {formatUnits(quote.targetToAmount)} USDC</div>
-			<div>Minimum received: {formatUnits(quote.toAmountMin ?? quote.targetToAmount)} USDC</div>
-			<div>Estimated fees: ${quote.estimatedFeesUsd ?? 'n/a'}</div>
-			<div>Route tool: {quote.toolName ?? quote.tool ?? 'LI.FI'}</div>
+		<div className='mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm break-words'>
+			<div className='font-semibold'>LI.FI 报价</div>
+			<div className='mt-2'>付款人预计支付：{formatUnits(quote.estimatedFromAmount)} USDC</div>
+			<div>商户目标收款：{formatUnits(quote.targetToAmount)} USDC</div>
+			<div>最低到账：{formatUnits(quote.toAmountMin ?? quote.targetToAmount)} USDC</div>
+			<div>预估费用：${quote.estimatedFeesUsd ?? 'n/a'}</div>
+			<div>路线工具：{quote.toolName ?? quote.tool ?? 'LI.FI'}</div>
 			<div>
-				Estimated route time: {quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s`}
+				预估耗时：{quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s`}
 			</div>
-			<div className='mt-1 text-xs text-slate-500'>{quote.routeSummary}</div>
+			<div className='mt-1 break-all text-xs text-slate-500'>{quote.routeSummary}</div>
 			<button
 				type='button'
 				onClick={onPay}
@@ -212,7 +225,7 @@ function QuoteCard({
 				className='mt-3 inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300'
 			>
 				<Wallet className='h-4 w-4' />
-				Approve & Pay With Wallet
+				用钱包授权并付款
 			</button>
 		</div>
 	);
@@ -223,9 +236,9 @@ function ReceiptCard({ value }: { value: unknown }) {
 		<details className='mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm'>
 			<summary className='flex cursor-pointer items-center gap-2 font-semibold'>
 				<ReceiptText className='h-4 w-4' />
-				Receipt / support package
+				收据 / 支持材料
 			</summary>
-			<pre className='mt-3 max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100'>
+			<pre className='mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-950 p-3 text-xs text-slate-100'>
 				{JSON.stringify(value, null, 2)}
 			</pre>
 		</details>
@@ -236,7 +249,7 @@ function LoadingIndicator() {
 	return (
 		<div className='inline-flex items-center gap-2 text-xs text-slate-500'>
 			<CircleDashed className='h-3 w-3 animate-spin' />
-			<span>Thinking</span>
+			<span>处理中</span>
 			<span className='flex gap-0.5' aria-hidden='true'>
 				<span className='animate-bounce'>.</span>
 				<span className='animate-bounce [animation-delay:120ms]'>.</span>
@@ -272,7 +285,7 @@ function FlowRecorder({
 			<div className='flex items-center justify-between gap-3'>
 				<div>
 					<div className='text-sm font-semibold text-slate-700'>Agent Run Timeline</div>
-					<div className='mt-1 text-xs text-slate-500'>{events.length} recorded events</div>
+					<div className='mt-1 text-xs text-slate-500'>已记录 {events.length} 个事件</div>
 				</div>
 				<button
 					type='button'
@@ -281,20 +294,20 @@ function FlowRecorder({
 					className='inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50'
 				>
 					<Download className='h-3 w-3' />
-					Run Log
+					导出日志
 				</button>
 			</div>
 			<div className='mt-3 space-y-2'>
 				{steps.map((step) => (
 					<details
 						key={step.key}
-						className='rounded-md border border-slate-200 bg-slate-50 px-3 py-2'
+						className='rounded-md border border-slate-200 bg-slate-50 px-3 py-2 break-words'
 					>
 						<summary className='grid cursor-pointer grid-cols-[auto_1fr] gap-2'>
 							<StatusIcon status={step.status} />
 							<div>
 								<div className='text-sm font-medium'>{step.title}</div>
-								<div className='mt-1 text-xs leading-5 text-slate-600'>{step.note}</div>
+								<div className='mt-1 break-words text-xs leading-5 text-slate-600'>{step.note}</div>
 							</div>
 						</summary>
 						<div className='mt-3 space-y-2 pl-6 text-xs leading-5 text-slate-600'>
@@ -302,21 +315,21 @@ function FlowRecorder({
 								events
 									.filter((event) => flowKeyForRunEvent(event) === step.key)
 									.map((event) => (
-										<div key={event.id} className='rounded-md border border-slate-200 bg-white p-2'>
+										<div key={event.id} className='rounded-md border border-slate-200 bg-white p-2 break-all'>
 											<div className='font-medium text-slate-800'>{event.summary}</div>
-											{event.tool ? <div>Tool: {event.tool}</div> : null}
-											{event.inputSummary ? <div>Input: {event.inputSummary}</div> : null}
-											{event.outputSummary ? <div>Output: {event.outputSummary}</div> : null}
-											{event.validation?.length ? <div>Validation: {event.validation.join(' | ')}</div> : null}
-											{event.repairAction ? <div>Repair: {event.repairAction}</div> : null}
-											{event.artifact ? <div>Artifact: {event.artifact}</div> : null}
+											{event.tool ? <div>工具：{event.tool}</div> : null}
+											{event.inputSummary ? <div>输入：{event.inputSummary}</div> : null}
+											{event.outputSummary ? <div>输出：{event.outputSummary}</div> : null}
+											{event.validation?.length ? <div>校验：{event.validation.join(' | ')}</div> : null}
+											{event.repairAction ? <div>修复建议：{event.repairAction}</div> : null}
+											{event.artifact ? <div>交付物：{event.artifact}</div> : null}
 										</div>
 									))
 							) : (
 								<div>
 									{step.status === 'pending'
-										? 'Waiting for this step to run.'
-										: 'No evidence was emitted for this completed step.'}
+										? '等待该步骤执行。'
+										: '该步骤暂无详细证据记录。'}
 								</div>
 							)}
 						</div>
@@ -324,11 +337,11 @@ function FlowRecorder({
 				))}
 			</div>
 			<div className='mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900'>
-				Agent plans. User signs. Wallet executes. LI.FI routes. App tracks. Receipt proves.
+				Agent 负责规划，用户负责签名，钱包执行交易，LI.FI 负责路由，应用负责追踪，收据负责证明。
 			</div>
 			{runLog.toolCalls.length ? (
 				<div className='mt-3 rounded-md border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600'>
-					<div className='font-semibold text-slate-800'>Recorded tools</div>
+					<div className='font-semibold text-slate-800'>已记录工具</div>
 					<div>{runLog.toolCalls.join(' | ')}</div>
 				</div>
 			) : null}
@@ -1081,14 +1094,15 @@ export default function ChainCashierChat({
 				},
 			]);
 		} catch (caught) {
-			const message = caught instanceof Error ? caught.message : 'Wallet transaction failed.';
+			const rawMessage = caught instanceof Error ? caught.message : '钱包交易失败。';
+			const message = formatWalletErrorMessage(rawMessage);
 			recordRunEvent(
 				createRunEvent({
 					step: 'repair',
 					status: 'action_required',
-					summary: 'Wallet execution failed or was rejected before funds moved.',
+					summary: '钱包执行失败或用户在资金移动前取消了确认。',
 					outputSummary: message,
-					repairAction: 'Ask the user to inspect wallet state, switch chain, or retry from a fresh quote.',
+					repairAction: '请检查钱包网络、余额和授权状态，然后重新尝试。',
 				}),
 			);
 			setSteps((current) => updateStep(current, 'wallet', 'failed', message));
