@@ -1,6 +1,7 @@
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import './globals.css';
 import Providers from '../components/Providers';
+import ThemeToggle from '../components/ThemeToggle';
 
 export const metadata = {
 	title: 'ChainCashier',
@@ -20,6 +21,7 @@ export default async function RootLayout({
 			<body className='h-full w-full m-0 p-0 overflow-x-hidden overflow-y-auto'>
 				<Providers>
 					<AntdRegistry>{children}</AntdRegistry>
+					<ThemeToggle />
 				</Providers>
 			</body>
 		</html>

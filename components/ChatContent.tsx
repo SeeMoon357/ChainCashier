@@ -1,7 +1,6 @@
 'use client';
 
 import { RedoOutlined, ShareAltOutlined } from '@ant-design/icons';
-import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Actions, Bubble, Think } from '@ant-design/x';
 import type { ActionsProps, BubbleItemType } from '@ant-design/x';
@@ -32,17 +31,8 @@ import {
 import ExecutionPreviewCard from './ExecutionPreviewCard';
 import IntentFlightRecordCard from './IntentFlightRecordCard';
 import Prompt from './Prompt';
+import PillComposer from './ui/PillComposer';
 import { buildChatBubbleItems } from '@/lib/chatBubbleItems';
-
-const ChatSender = dynamic(() => import('./ChatSender'), {
-	ssr: false,
-	loading: () => (
-		<div
-			className='w-full rounded-2xl'
-			style={{ minHeight: 56 }}
-		/>
-	),
-});
 
 type ChatMessage = {
 	key: string;
@@ -885,22 +875,20 @@ export default function ChatContent() {
 				)}
 			</div>
 
-			<div
-				className='intentlens-composer-shell mx-auto w-full max-w-md sm:max-w-2xl lg:max-w-4xl rounded-[20px] p-1 flex-shrink-0'
-			>
+			<div className='mx-auto w-full max-w-md sm:max-w-2xl lg:max-w-4xl flex-shrink-0'>
 				{chatMode === 'classic_route' ? (
-					<div className='mb-2 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700'>
-						<span className='font-medium'>Classic route mode</span>
+					<div className='mb-2 flex items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/55 px-3 py-2 text-xs text-gray-600 backdrop-blur-md'>
+						<span className='font-medium text-gray-700'>Classic route mode</span>
 						<button
 							type='button'
-							className='rounded-lg border border-slate-200 bg-white px-2 py-1 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100'
+							className='rounded-full border border-white/60 bg-white/70 px-2 py-1 font-medium text-gray-700 transition hover:bg-white'
 							onClick={() => setChatMode('intent_lens')}
 						>
 							Back to Intents
 						</button>
 					</div>
 				) : null}
-				<ChatSender
+				<PillComposer
 					value={value}
 					onChangeAction={setValue}
 					onSubmitAction={sendMessage}

@@ -1,14 +1,19 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { parseAbi } from 'viem';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
-import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Download, ExternalLink, ReceiptText, Wallet } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Download, ExternalLink, Home, ReceiptText, Wallet } from 'lucide-react';
 import WalletButton from './WalletConnect';
+import BackgroundBlobs from './ui/BackgroundBlobs';
+import GlassIsland from './ui/GlassIsland';
+import PillComposer from './ui/PillComposer';
+import GradientButton from './ui/GradientButton';
+import SerifHeading from './ui/SerifHeading';
 import type { Invoice, PaymentQuoteSummary, SupportPackage } from '@/lib/chainCashier';
 import type { PayerSourceOption } from '@/lib/chainCashierChat';
 import { getChainCashierWalletChain } from '@/lib/chainCashierWalletChains';
@@ -19,11 +24,6 @@ import {
 	type AgentRunLog,
 } from '@/lib/chainCashierRun';
 import { splitTypewriterText } from '@/lib/chainCashierStreaming';
-
-const ChatSender = dynamic(() => import('./ChatSender'), {
-	ssr: false,
-	loading: () => <div className='h-14 rounded-2xl bg-white' />,
-});
 
 const erc20Abi = parseAbi([
 	'function approve(address spender, uint256 amount) returns (bool)',
@@ -181,14 +181,14 @@ function Markdown({ text }: { text: string }) {
 
 function InvoiceCard({ invoice }: { invoice: Invoice }) {
 	return (
-		<div className='mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950 break-words'>
+		<div className='mt-3 rounded-2xl border border-white/70 bg-white/70 p-3 text-sm text-gray-800 shadow-glass backdrop-blur-md break-words'>
 			<div className='font-semibold'>{invoice.invoiceId}</div>
 			<div className='mt-1'>商户收款：{invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</div>
 			<div>商户地址：<span className='break-all'>{invoice.merchantAddress}</span></div>
 			<div>费用策略：付款人承担跨链成本</div>
 			<a
 				href={invoice.paymentLink}
-				className='mt-2 inline-flex items-center gap-1 break-all font-medium text-emerald-800 underline'
+				className='mt-2 inline-flex items-center gap-1 break-all font-medium text-blue-600 underline'
 			>
 				<ExternalLink className='h-4 w-4' />
 				{invoice.paymentLink}
@@ -207,7 +207,7 @@ function QuoteCard({
 	disabled: boolean;
 }) {
 	return (
-		<div className='mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm break-words'>
+		<div className='mt-3 rounded-2xl border border-white/70 bg-white/70 p-3 text-sm text-gray-800 shadow-glass backdrop-blur-md break-words'>
 			<div className='font-semibold'>LI.FI 报价</div>
 			<div className='mt-2'>付款人预计支付：{formatUnits(quote.estimatedFromAmount)} USDC</div>
 			<div>商户目标收款：{formatUnits(quote.targetToAmount)} USDC</div>
@@ -222,7 +222,7 @@ function QuoteCard({
 				type='button'
 				onClick={onPay}
 				disabled={disabled || !quote.transactionRequest}
-				className='mt-3 inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300'
+				className='mt-3 inline-flex items-center gap-2 rounded-full border border-white/60 bg-gradient-to-b from-blue-500 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-pill transition-all hover:-translate-y-0.5 hover:from-blue-400 hover:to-blue-500 hover:shadow-[0_8px_30px_-5px_rgba(59,130,246,0.45)] active:scale-95 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300'
 			>
 				<Wallet className='h-4 w-4' />
 				用钱包授权并付款
@@ -233,7 +233,7 @@ function QuoteCard({
 
 function ReceiptCard({ value }: { value: unknown }) {
 	return (
-		<details className='mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm'>
+		<details className='mt-3 rounded-2xl border border-white/70 bg-white/60 p-3 text-sm shadow-glass backdrop-blur-md'>
 			<summary className='flex cursor-pointer items-center gap-2 font-semibold'>
 				<ReceiptText className='h-4 w-4' />
 				收据 / 支持材料
@@ -281,7 +281,7 @@ function FlowRecorder({
 	onExport: () => void;
 }) {
 	return (
-		<aside className='rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-auto'>
+		<aside className='rounded-[24px] border border-white/60 bg-white/60 p-4 shadow-glass backdrop-blur-xl lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-auto'>
 			<div className='flex items-center justify-between gap-3'>
 				<div>
 					<div className='text-sm font-semibold text-slate-700'>Agent Run Timeline</div>
@@ -336,7 +336,7 @@ function FlowRecorder({
 					</details>
 				))}
 			</div>
-			<div className='mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900'>
+			<div className='mt-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-xs leading-5 text-blue-900'>
 				Agent 负责规划，用户负责签名，钱包执行交易，LI.FI 负责路由，应用负责追踪，收据负责证明。
 			</div>
 			{runLog.toolCalls.length ? (
@@ -1150,54 +1150,72 @@ export default function ChainCashierChat({
 	}
 
 	return (
-		<main className='flex min-h-screen flex-col bg-[#f7f8f3] text-slate-950'>
-			<header className='border-b border-slate-200 bg-white/90 backdrop-blur'>
-				<div className='mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4'>
-					<div>
-						<div className='text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700'>ChainCashier</div>
-						<h1 className='text-xl font-semibold'>{title}</h1>
-						<p className='text-sm text-slate-500'>{subtitle}</p>
+		<main className='relative flex min-h-screen flex-col items-center overflow-hidden bg-[var(--app-bg)] font-sans text-[var(--app-text)] selection:bg-blue-100 selection:text-blue-900'>
+			<BackgroundBlobs />
+
+			{/* 顶部胶囊玻璃导航 */}
+			<header
+				className='relative z-20 flex w-full shrink-0 justify-center px-4 pt-6 animate-fade-down'
+			>
+				<GlassIsland className='flex items-center rounded-full border-white/80 bg-white/70 p-1.5 text-sm shadow-sm sm:w-[22rem]'>
+					<div className='flex flex-1 items-center justify-center gap-2 border-r border-[#dadada]/50 py-2 dark:border-white/10'>
+						<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className='text-gray-800 dark:text-gray-200'>
+							<path d='M12 2a10 10 0 1 0 10 10H12V2Z' />
+							<path d='M12 12 2.1 7.1' />
+							<path d='M12 12l9.9 4.9' />
+						</svg>
+						<span className='font-semibold tracking-wide text-gray-900 dark:text-gray-100'>ChainCashier</span>
 					</div>
+					{role === 'merchant' ? (
+						<Link
+							href='/'
+							className='flex flex-1 items-center justify-center gap-2 whitespace-nowrap py-2 font-medium text-gray-500 transition-all hover:bg-white/60 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white'
+						>
+							<Home className='h-4 w-4' />
+							<span>Switch to Home</span>
+						</Link>
+					) : (
+						<span className='flex flex-1 items-center justify-center whitespace-nowrap py-2 font-medium text-gray-500 dark:text-gray-400'>Payer</span>
+					)}
+				</GlassIsland>
+
+				{/* 右上角：连接钱包 */}
+				<div className='absolute right-4 top-6 z-30'>
 					<WalletButton />
 				</div>
 			</header>
 
-			<div className='mx-auto grid min-h-0 w-full max-w-7xl flex-1 gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_340px]'>
-				<section className='flex min-h-[70vh] min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white/55'>
+			{/* 中央内容区 */}
+			<div className='relative z-10 flex w-full max-w-4xl flex-1 flex-col px-4 pb-44 pt-10'>
+				{messages.length === 0 ? (
 					<div
-						ref={scrollRef}
-						className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 sm:px-5'
+						className='flex flex-1 flex-col items-center justify-center text-center animate-fade-up'
 					>
-						{messages.length === 0 ? (
-							<div className='mx-auto mt-16 w-full max-w-2xl text-center'>
-								<h2 className='text-2xl font-semibold'>
-									{role === 'merchant' ? '创建跨链收款账单' : '用你的钱包完成跨链付款'}
-								</h2>
-								<p className='mt-3 text-slate-600'>{starter}</p>
-								<button
-									type='button'
-									onClick={() => setInput(starter)}
-									className='mt-5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700'
-								>
-									填入示例
-								</button>
-							</div>
-						) : null}
-
+						<SerifHeading className='max-w-[90%] text-3xl font-medium leading-[1.15] tracking-tight text-[#1a1c1c] dark:text-gray-50 sm:text-5xl md:text-[3.25rem]'>
+							{role === 'merchant' ? 'Empower your checkout with cross-chain agents.' : 'Pay any chain, settle straight to the merchant.'}
+						</SerifHeading>
+						<p className='mt-6 max-w-xl text-lg font-medium leading-relaxed text-gray-700 dark:text-gray-300'>{subtitle}</p>
+						<GradientButton onClick={() => setInput(starter)} className='mt-10 px-10 py-4 text-lg'>
+							Get Started
+						</GradientButton>
+						<p className='mt-3 text-xs text-gray-400 dark:text-gray-500'>{title}</p>
+					</div>
+				) : (
+					<div ref={scrollRef} className='flex flex-1 flex-col gap-4 overflow-y-auto py-2'>
 						{messages.map((message) => (
 							<div
 								key={message.id}
 								className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
 							>
 								<div
-									className={`max-w-[82%] rounded-2xl px-4 py-3 shadow-sm ${
+									className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-glass ${
 										message.role === 'user'
-											? 'bg-slate-950 text-white'
-											: 'border border-slate-200 bg-white text-slate-950'
+											? 'border border-white/60 bg-gradient-to-b from-[#e2e2e2] to-[#c2c6d6] text-gray-900 dark:border-white/10 dark:from-white/10 dark:to-white/5 dark:text-gray-100'
+											: 'glass-island text-gray-900 dark:text-gray-100'
 									}`}
 								>
 									{message.reasoning ? (
-										<details className='mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+										<details className='mb-3 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-xs text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300'>
 											<summary className='cursor-pointer font-medium'>Thinking / tool trace</summary>
 											<pre className='mt-2 whitespace-pre-wrap'>{message.reasoning}</pre>
 										</details>
@@ -1209,7 +1227,7 @@ export default function ChainCashierChat({
 									) : null}
 									{message.invoice ? <InvoiceCard invoice={message.invoice} /> : null}
 									{message.source ? (
-										<div className='mt-3 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800'>
+										<div className='mt-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300'>
 											<CheckCircle2 className='h-4 w-4' />
 											{message.source.label}
 										</div>
@@ -1225,7 +1243,7 @@ export default function ChainCashierChat({
 										<ReceiptCard value={{ receipt: message.receipt, supportPackage: message.supportPackage }} />
 									) : null}
 									{message.streaming && message.content ? (
-										<div className='mt-2 inline-flex items-center gap-2 text-xs text-slate-500'>
+										<div className='mt-2 inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400'>
 											<CircleDashed className='h-3 w-3 animate-spin' />
 											streaming
 										</div>
@@ -1234,47 +1252,60 @@ export default function ChainCashierChat({
 							</div>
 						))}
 					</div>
-
-					<div className='border-t border-slate-200 bg-white/90 px-4 py-4 sm:px-5'>
-						{role === 'payer' && invoice ? (
-							<div className='mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-								<span>Invoice: {invoice.invoiceId} | Merchant receives {invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</span>
-								<button
-									type='button'
-									onClick={generateReceiptPackage}
-									className='inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 font-medium'
-								>
-									<ReceiptText className='h-3 w-3' />
-									Generate receipt package
-								</button>
-							</div>
-						) : null}
-						<div className='intentlens-composer-shell rounded-[20px] p-1'>
-							<ChatSender
-								value={input}
-								onChangeAction={setInput}
-								onSubmitAction={sendMessage}
-								loading={busy}
-								onCancelAction={() => {
-									abortRef.current?.abort();
-									setBusy(false);
-								}}
-							/>
-						</div>
-						<div className='mt-2 flex items-center gap-2 text-xs text-slate-500'>
-							<Copy className='h-3 w-3' />
-							Agent plans. User signs. Wallet executes. LI.FI routes. App tracks.
-						</div>
-					</div>
-				</section>
-
-				<FlowRecorder
-					steps={steps}
-					events={runEvents}
-					runLog={runLog}
-					onExport={exportRunLog}
-				/>
+				)}
 			</div>
+
+			{/* 底部浮动胶囊输入 */}
+			<div
+				style={{ animationDelay: '0.2s' }}
+				className='fixed bottom-8 left-1/2 z-30 w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 animate-fade-up'
+			>
+				{role === 'payer' && invoice ? (
+					<div className='mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/60 bg-white/55 px-3 py-2 text-xs text-gray-600 backdrop-blur-md'>
+						<span>Invoice: {invoice.invoiceId} | Merchant receives {invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</span>
+						<button
+							type='button'
+							onClick={generateReceiptPackage}
+							className='inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/70 px-2 py-1 font-medium text-gray-700'
+						>
+							<ReceiptText className='h-3 w-3' />
+							Generate receipt package
+						</button>
+					</div>
+				) : null}
+				<PillComposer
+					value={input}
+					onChangeAction={setInput}
+					onSubmitAction={sendMessage}
+					loading={busy}
+					onCancelAction={() => {
+						abortRef.current?.abort();
+						setBusy(false);
+					}}
+					placeholder={role === 'merchant' ? 'Describe the invoice you want to create...' : 'Type your message...'}
+				/>
+				<div className='mt-2 flex items-center justify-center gap-2 text-xs text-gray-400'>
+					<Copy className='h-3 w-3' />
+					Agent plans. User signs. Wallet executes. LI.FI routes. App tracks.
+				</div>
+			</div>
+
+			{/* 浮动可折叠 Run Timeline（不占主视图，保留功能） */}
+			<details className='fixed bottom-28 right-6 z-20 w-[20rem]'>
+				<summary className='glass-island flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold shadow-glass [&::-webkit-details-marker]:hidden'>
+					<CircleDashed className='h-4 w-4 text-blue-500' />
+					Run Timeline
+					<span className='ml-auto text-[10px] font-normal text-gray-400 dark:text-gray-500'>{steps.length} steps</span>
+				</summary>
+				<div className='glass-island mt-2 max-h-[55vh] overflow-auto rounded-2xl p-2'>
+					<FlowRecorder
+						steps={steps}
+						events={runEvents}
+						runLog={runLog}
+						onExport={exportRunLog}
+					/>
+				</div>
+			</details>
 		</main>
 	);
 }

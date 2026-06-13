@@ -1,5 +1,5 @@
-import ChainCashierChat from '@/components/ChainCashierChat';
+import LandingHero from '@/components/LandingHero';
 
 export default function Home() {
-	return <ChainCashierChat role='merchant' />;
+	return <LandingHero />;
 }

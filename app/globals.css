@@ -1,6 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&display=swap');
 @import 'tailwindcss';
 @import '@heroui/styles/css';
+
+/* Tailwind v4 默认 dark: 跟随 prefers-color-scheme；
+   改为跟随 next-themes 在 <html> 上切换的 .dark 类，整站主题才能用按钮控制。 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
 	--color-primary: #4c644e;
@@ -23,6 +27,14 @@
 	--font-label: 'Plus Jakarta Sans', sans-serif;
 	--font-art: 'Cinzel Decorative', serif;
 
+	/* zip / AI Studio design tokens */
+	--font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--font-serif: 'Source Serif 4', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+	--color-interactive-glow: rgba(59, 130, 246, 0.15);
+	--shadow-ambient: 0 12px 48px rgba(59, 130, 246, 0.08);
+	--shadow-glass: 0 4px 32px rgba(0, 0, 0, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+	--shadow-pill: 0 2px 12px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.8), inset 0 -2px 4px rgba(0, 0, 0, 0.05);
+
 	/* Dark mode colors */
 	--color-surface-dark: #0f172a;
 	--color-surface-container-lowest-dark: #1a202c;
@@ -36,21 +48,21 @@
 
 /* 全局默认颜色 */
 :root {
-	/* 背景默认白色 */
-	--app-bg: #fbfaf7;
-	/* 文字默认黑色 */
-	--app-text: #171717;
+	/* 背景:zip 近白 */
+	--app-bg: #fdfdfd;
+	/* 文字 */
+	--app-text: #1f1f1f;
 	--app-panel: #ffffff;
-	--app-sidebar: #f9f9f9;
-	--app-muted: rgba(23, 23, 23, 0.64);
-	--app-soft: rgba(23, 23, 23, 0.45);
-	--app-border: rgba(23, 23, 23, 0.18);
-	--app-hover: rgba(23, 23, 23, 0.08);
-	--app-input-text: #171717;
-	--app-input-placeholder: #5c5c5c;
-	--app-prompt-title: rgba(23, 23, 23, 0.55);
-	--app-prompt-desc: rgba(23, 23, 23, 0.65);
-	--app-send-btn-bg: #171717;
+	--app-sidebar: rgba(255, 255, 255, 0.72);
+	--app-muted: rgba(31, 31, 31, 0.64);
+	--app-soft: rgba(31, 31, 31, 0.45);
+	--app-border: rgba(17, 24, 39, 0.1);
+	--app-hover: rgba(59, 130, 246, 0.06);
+	--app-input-text: #1f1f1f;
+	--app-input-placeholder: #9ca3af;
+	--app-prompt-title: rgba(31, 31, 31, 0.55);
+	--app-prompt-desc: rgba(31, 31, 31, 0.65);
+	--app-send-btn-bg: #3b82f6;
 	--app-send-btn-fg: #ffffff;
 	--app-sidebar-action-bg: transparent;
 	--app-sidebar-action-hover-bg: rgba(23, 23, 23, 0.08);
@@ -94,11 +106,8 @@
 }
 
 body {
-	font-family: var(--font-inter);
+	font-family: var(--font-sans);
 	background-color: var(--app-bg);
-	background-image:
-		radial-gradient(circle at 18% 0%, rgba(143, 169, 143, 0.13), transparent 32rem),
-		linear-gradient(180deg, #ffffff 0%, var(--app-bg) 26rem);
 	color: var(--app-text);
 	min-height: 100dvh;
 	overflow-x: hidden;
@@ -106,9 +115,7 @@ body {
 }
 
 .dark body {
-	background-image:
-		radial-gradient(circle at 18% 0%, rgba(143, 169, 143, 0.12), transparent 32rem),
-		linear-gradient(180deg, #212121 0%, var(--app-bg) 26rem);
+	background-image: none;
 }
 
 .intentlens-chat-shell {
@@ -1055,4 +1062,94 @@ textarea:focus {
 	color: currentColor !important;
 	fill: currentColor !important;
 	stroke: currentColor !important;
+}
+
+/* zip / AI Studio utility primitives */
+@layer utilities {
+	.glass-island {
+		background: rgba(255, 255, 255, 0.7);
+		backdrop-filter: blur(32px);
+		-webkit-backdrop-filter: blur(32px);
+		border: 1px solid rgba(255, 255, 255, 0.6);
+		box-shadow: var(--shadow-glass);
+	}
+	.animate-pulse-slow {
+		animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+	.font-serif-display {
+		font-family: var(--font-serif);
+	}
+	.shadow-ambient {
+		box-shadow: var(--shadow-ambient);
+	}
+	.shadow-glass {
+		box-shadow: var(--shadow-glass);
+	}
+	.shadow-pill {
+		box-shadow: var(--shadow-pill);
+	}
+	/* 入场动画：纯 CSS，不依赖 motion 的 JS hydration，永远可见 */
+	.animate-fade-down {
+		animation: cc-fade-down 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+	.animate-fade-up {
+		animation: cc-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+	.animate-fade-in {
+		animation: cc-fade-in 0.6s ease-out both;
+	}
+}
+
+@keyframes pulse-slow {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@keyframes cc-fade-down {
+	from {
+		opacity: 0;
+		transform: translateY(-20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes cc-fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes cc-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.animate-fade-down,
+	.animate-fade-up,
+	.animate-fade-in {
+		animation: none;
+	}
+}
+
+.dark .glass-island {
+	background: rgba(24, 24, 24, 0.7);
+	border-color: rgba(255, 255, 255, 0.12);
 }

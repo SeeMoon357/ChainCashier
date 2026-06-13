@@ -107,18 +107,18 @@ function TypewriterTitle() {
 		<span
 			className='inline-flex items-center'
 			style={{
-				color: '#000000',
-				fontFamily: 'var(--font-art), var(--font-headline), serif',
-				fontWeight: 900,
-				fontSize: 'clamp(1.55rem, 1.9vw, 2.2rem)',
-				letterSpacing: '0.01em',
+				color: '#1a1c1c',
+				fontFamily: 'var(--font-serif)',
+				fontWeight: 700,
+				fontSize: 'clamp(1.8rem, 3vw, 2.8rem)',
+				letterSpacing: '-0.01em',
 			}}
 		>
 			{titleText}
 			<span
 				aria-hidden
 				className='ml-0.5 inline-block h-[1.15em] w-[2px] animate-pulse'
-				style={{ backgroundColor: '#000000' }}
+				style={{ backgroundColor: '#3b82f6' }}
 			/>
 		</span>
 	);

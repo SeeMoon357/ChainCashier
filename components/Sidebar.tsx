@@ -242,7 +242,7 @@ export default function Sidebar() {
 	return (
 		<nav
 			id='sidebar'
-			className={`relative flex flex-shrink-0 flex-col [background:var(--app-sidebar)] border-r border-[rgba(255,255,255,0.1)] transition-all duration-300 overflow-hidden ${
+			className={`relative z-10 flex flex-shrink-0 flex-col border-r border-[var(--app-border)] [background:var(--app-sidebar)] backdrop-blur-xl transition-all duration-300 overflow-hidden ${
 				isOpen ? 'w-[260px]' : 'w-[68px]'
 			}`}
 		>
