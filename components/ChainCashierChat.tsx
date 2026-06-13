@@ -533,7 +533,7 @@ export default function ChainCashierChat({
 	useEffect(() => {
 		scrollRef.current?.scrollTo({
 			top: scrollRef.current.scrollHeight,
-			behavior: 'smooth',
+			behavior: 'auto',
 		});
 	}, [messages]);
 
@@ -1150,7 +1150,7 @@ export default function ChainCashierChat({
 	}
 
 	return (
-		<main className='relative flex min-h-screen flex-col items-center overflow-hidden bg-[var(--app-bg)] font-sans text-[var(--app-text)] selection:bg-blue-100 selection:text-blue-900'>
+		<main className='relative flex h-screen flex-col items-center overflow-hidden bg-[var(--app-bg)] font-sans text-[var(--app-text)] selection:bg-blue-100 selection:text-blue-900'>
 			<BackgroundBlobs />
 
 			{/* 顶部胶囊玻璃导航 */}
@@ -1186,7 +1186,7 @@ export default function ChainCashierChat({
 			</header>
 
 			{/* 中央内容区 */}
-			<div className='relative z-10 flex w-full max-w-4xl flex-1 flex-col px-4 pb-44 pt-10'>
+			<div className='relative z-10 flex w-full max-w-4xl flex-1 min-h-0 flex-col px-4 pb-44 pt-10'>
 				{messages.length === 0 ? (
 					<div
 						className='flex flex-1 flex-col items-center justify-center text-center animate-fade-up'
@@ -1201,7 +1201,7 @@ export default function ChainCashierChat({
 						<p className='mt-3 text-xs text-gray-400 dark:text-gray-500'>{title}</p>
 					</div>
 				) : (
-					<div ref={scrollRef} className='flex flex-1 flex-col gap-4 overflow-y-auto py-2'>
+					<div ref={scrollRef} className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2'>
 						{messages.map((message) => (
 							<div
 								key={message.id}
@@ -1215,7 +1215,7 @@ export default function ChainCashierChat({
 									}`}
 								>
 									{message.reasoning ? (
-										<details className='mb-3 rounded-xl border border-white/60 bg-white/60 px-3 py-2 text-xs text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300'>
+										<details className='mb-3 rounded-xl border border-slate-200/80 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-sm dark:border-white/10 dark:bg-black/50 dark:text-slate-200'>
 											<summary className='cursor-pointer font-medium'>Thinking / tool trace</summary>
 											<pre className='mt-2 whitespace-pre-wrap'>{message.reasoning}</pre>
 										</details>
