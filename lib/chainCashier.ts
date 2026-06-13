@@ -34,6 +34,9 @@ export type PaymentQuoteSummary = {
 	estimatedToAmount?: string;
 	toAmountMin?: string;
 	estimatedFeesUsd?: string;
+	tool?: string;
+	toolName?: string;
+	executionDuration?: number;
 	approvalAddress?: `0x${string}`;
 	routeSummary: string;
 	transactionRequest?: {
@@ -141,6 +144,9 @@ type RawLifiQuote = {
 		gasCosts?: Array<{ amountUSD?: unknown }>;
 		executionDuration?: unknown;
 		approvalAddress?: unknown;
+	};
+	toolDetails?: {
+		name?: unknown;
 	};
 	transactionRequest?: {
 		to?: unknown;
@@ -256,6 +262,9 @@ export function buildPaymentQuoteRequest(input: {
 		fromAddress: asHexAddress(input.payerAddress, 'payerAddress'),
 		toAddress: input.invoice.merchantAddress,
 		toAmount: parseUnits(input.invoice.receiveAmount, 6).toString(),
+		order: 'FASTEST',
+		preset: 'stablecoin',
+		denyBridges: ['polymerStandard'],
 	};
 }
 
@@ -290,6 +299,9 @@ export function summarizePaymentQuote(input: {
 
 	const estimatedFromAmount =
 		stringValue(action.fromAmount) ?? stringValue(estimate.fromAmount) ?? '0';
+	const tool = stringValue(input.rawQuote.tool);
+	const toolName = stringValue(input.rawQuote.toolDetails?.name) ?? tool ?? 'LI.FI';
+	const executionDuration = numberValue(estimate.executionDuration);
 	const targetToAmount =
 		stringValue(action.toAmount) ??
 		stringValue(estimate.toAmount) ??
@@ -315,10 +327,13 @@ export function summarizePaymentQuote(input: {
 		estimatedToAmount: stringValue(estimate.toAmount),
 		toAmountMin: stringValue(estimate.toAmountMin),
 		estimatedFeesUsd: feeUsd.toFixed(2),
+		tool,
+		toolName,
+		executionDuration,
 		approvalAddress: stringValue(estimate.approvalAddress) as
 			| `0x${string}`
 			| undefined,
-		routeSummary: `${getChainCashierChainLabel(input.sourceChainId)} USDC -> ${getChainCashierChainLabel(input.invoice.receiveChainId)} USDC via ${stringValue(input.rawQuote.tool) ?? 'LI.FI'}`,
+		routeSummary: `${getChainCashierChainLabel(input.sourceChainId)} USDC -> ${getChainCashierChainLabel(input.invoice.receiveChainId)} USDC via ${toolName}${executionDuration == null ? '' : `, estimated ${executionDuration}s`}`,
 		transactionRequest:
 			typeof input.rawQuote.transactionRequest?.to === 'string' &&
 			typeof input.rawQuote.transactionRequest?.data === 'string'

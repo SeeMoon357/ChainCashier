@@ -62,6 +62,9 @@ test('buildPaymentQuoteRequest uses invoice target and payer source for toAmount
 		fromAddress: '0x3333333333333333333333333333333333333333',
 		toAddress: '0x2222222222222222222222222222222222222222',
 		toAmount: '20000000',
+		order: 'FASTEST',
+		preset: 'stablecoin',
+		denyBridges: ['polymerStandard'],
 	});
 });
 
@@ -113,6 +116,9 @@ test('buildPaymentQuoteRequest supports Base to Arbitrum settlement', async () =
 	assert.equal(request.toChain, 42161);
 	assert.equal(request.fromToken, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
 	assert.equal(request.toToken, '0xaf88d065e77c8cC2239327C5EDb3A432268e5831');
+	assert.equal(request.order, 'FASTEST');
+	assert.equal(request.preset, 'stablecoin');
+	assert.deepEqual(request.denyBridges, ['polymerStandard']);
 });
 
 test('summarizePaymentQuote describes the dynamic target chain', async () => {
@@ -145,11 +151,21 @@ test('summarizePaymentQuote describes the dynamic target chain', async () => {
 				toToken: { address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' },
 				toAddress: '0x4444444444444444444444444444444444444444',
 			},
-			tool: 'LI.FI',
+			estimate: {
+				executionDuration: 2,
+				feeCosts: [{ amountUSD: '0.01' }],
+				gasCosts: [{ amountUSD: '0.004' }],
+			},
+			tool: 'across',
+			toolDetails: { name: 'AcrossV4' },
 		},
 	});
 
-	assert.equal(quote.routeSummary, 'Base USDC -> Arbitrum USDC via LI.FI');
+	assert.equal(quote.tool, 'across');
+	assert.equal(quote.toolName, 'AcrossV4');
+	assert.equal(quote.executionDuration, 2);
+	assert.equal(quote.estimatedFeesUsd, '0.01');
+	assert.equal(quote.routeSummary, 'Base USDC -> Arbitrum USDC via AcrossV4, estimated 2s');
 });
 
 test('summarizePaymentQuote blocks quotes that do not pay the locked merchant target', async () => {

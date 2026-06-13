@@ -312,6 +312,8 @@ export default function ChainCashierDemo({
 			payerPaysEstimated: `${formatUnits(quote.estimatedFromAmount)} USDC`,
 			minimumReceived: `${formatUnits(quote.toAmountMin ?? quote.targetToAmount)} USDC`,
 			feesUsd: quote.estimatedFeesUsd ?? 'n/a',
+			routeTool: quote.toolName ?? quote.tool ?? 'LI.FI',
+			routeDuration: quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s`,
 			feePolicy: invoice.feePolicy,
 		};
 	}, [invoice, quote]);
@@ -618,6 +620,8 @@ export default function ChainCashierDemo({
 							<div>Payer pays estimated: {costSummary.payerPaysEstimated}</div>
 							<div>Minimum received: {costSummary.minimumReceived}</div>
 							<div>Estimated fees USD: {costSummary.feesUsd}</div>
+							<div>Route tool: {costSummary.routeTool}</div>
+							<div>Estimated route time: {costSummary.routeDuration}</div>
 							<div>Fee policy: payer covers cross-chain cost</div>
 						</div>
 					) : null}

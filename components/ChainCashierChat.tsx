@@ -200,6 +200,10 @@ function QuoteCard({
 			<div>Merchant target amount: {formatUnits(quote.targetToAmount)} USDC</div>
 			<div>Minimum received: {formatUnits(quote.toAmountMin ?? quote.targetToAmount)} USDC</div>
 			<div>Estimated fees: ${quote.estimatedFeesUsd ?? 'n/a'}</div>
+			<div>Route tool: {quote.toolName ?? quote.tool ?? 'LI.FI'}</div>
+			<div>
+				Estimated route time: {quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s`}
+			</div>
 			<div className='mt-1 text-xs text-slate-500'>{quote.routeSummary}</div>
 			<button
 				type='button'

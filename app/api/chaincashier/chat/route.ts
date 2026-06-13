@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
 						event: createRunEvent({
 							step: 'quote',
 							status: 'completed',
-							summary: 'LI.FI returned an exact-toAmount quote.',
+							summary: 'LI.FI selected the fastest stablecoin route for exact merchant settlement.',
 							tool: 'LI.FI quote/toAmount',
 							outputSummary: quote.routeSummary,
 						}),
@@ -294,23 +294,23 @@ export async function POST(request: NextRequest) {
 						request: quoteRequestChunk.request,
 					});
 					send({ type: 'quote', quote, rawQuote: quoteResult.data });
-					send({ type: 'response', content: '收到。商户要求收到 ' });
+					send({ type: 'response', content: 'Received. The merchant requests ' });
 					send({
 						type: 'response',
-						content: `**${invoice.receiveAmount} ${invoice.receiveToken} on ${invoice.receiveChain}**。\n\n`,
+						content: `**${updatedInvoice.receiveAmount} ${updatedInvoice.receiveToken} on ${updatedInvoice.receiveChain}**.` + '\n\n',
 					});
 					send({
 						type: 'response',
-						content: `你选择从 **${quoteRequestChunk.source.label}** 支付。\n\n`,
+						content: `You selected **${quoteRequestChunk.source.label}** as the payer source.` + '\n\n',
 					});
 					send({
 						type: 'response',
-						content: `LI.FI 已返回报价：预计你需要支付 **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**。请检查费用和最小到账，然后用钱包确认。`,
+						content: `LI.FI selected the fastest stablecoin route via **${quote.toolName ?? quote.tool ?? 'LI.FI'}** with estimated route time **${quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s` }**. Estimated payer cost is **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**. Please review fees and minimum received, then confirm in your wallet.`,
 					});
 					send({
 						type: 'response',
 						content:
-							'\n\n注意：Agent 不会签名或转账，资金只会在你确认钱包交易后移动。',
+							'\n\nNote: Agent never signs or transfers funds. Funds move only after you confirm the wallet transaction.',
 					});
 					send({ type: 'done' });
 				} catch (error) {

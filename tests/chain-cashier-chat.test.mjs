@@ -138,6 +138,9 @@ test('buildPayerQuotePlan emits source selection and quote request chunks', asyn
 	assert.equal(chunks[4].type, 'quote_request');
 	assert.equal(chunks[4].request.toChain, 8453);
 	assert.equal(chunks[4].request.toAddress, invoice.merchantAddress);
+	assert.equal(chunks[4].request.order, 'FASTEST');
+	assert.equal(chunks[4].request.preset, 'stablecoin');
+	assert.deepEqual(chunks[4].request.denyBridges, ['polymerStandard']);
 });
 
 test('buildPayerQuotePlan supports Base source for Arbitrum invoices', async () => {
