@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { formatUnits } from 'viem';
 import {
 	buildMerchantChatCreatedInvoice,
 	buildMerchantGeneralResponse,
@@ -304,7 +305,7 @@ export async function POST(request: NextRequest) {
 					});
 					send({
 						type: 'response',
-						content: `LI.FI 已返回报价：预计你需要支付 **${quote.estimatedFromAmount}** 个 USDC base units。请检查费用和最小到账，然后用钱包确认。`,
+						content: `LI.FI 已返回报价：预计你需要支付 **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**。请检查费用和最小到账，然后用钱包确认。`,
 					});
 					send({
 						type: 'response',
