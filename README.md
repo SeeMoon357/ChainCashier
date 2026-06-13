@@ -43,7 +43,10 @@ Copy `.env.local.example` to `.env.local` and fill:
 ```bash
 ZAI_API_KEY=
 ZAI_BASE_URL=https://api.z.ai/api/paas/v4
-CHECKOUT_AGENT_MODEL=zai/glm-5.1
+# Optional overrides. By default, all ChainCashier agents use zai/glm-5.1.
+# MAIN_AGENT_MODEL=zai/glm-5.1
+# EARNING_AGENT_MODEL=zai/glm-5.1
+# CHECKOUT_AGENT_MODEL=zai/glm-5.1
 
 LIFI_API_KEY=
 

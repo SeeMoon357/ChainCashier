@@ -36,32 +36,27 @@ test('getAgentConfig maps explicit qwen provider config to QWEN_API_KEY', async 
 	delete process.env.MAIN_AGENT_MODEL;
 });
 
-test('getAgentConfig defaults main and earning agents to DeepSeek Pro', async () => {
+test('getAgentConfig defaults all core agents to Z.AI GLM-5.1', async () => {
 	const { getAgentConfig } = await loadAgentConfigModule();
 	delete process.env.MAIN_AGENT_MODEL;
 	delete process.env.EARNING_AGENT_MODEL;
+	delete process.env.BRIDGE_AGENT_MODEL;
+	delete process.env.RISK_AGENT_MODEL;
+	delete process.env.MONITOR_AGENT_MODEL;
 	delete process.env.CHECKOUT_AGENT_MODEL;
 
 	const main = getAgentConfig('main');
 	const earning = getAgentConfig('earning');
-
-	assert.equal(main.provider, 'deepseek');
-	assert.equal(main.model, 'deepseek-v4-pro');
-	assert.equal(main.apiKeyEnv, 'DEEPSEEK_API_KEY');
-	assert.equal(earning.provider, 'deepseek');
-	assert.equal(earning.model, 'deepseek-v4-pro');
-	assert.equal(earning.apiKeyEnv, 'DEEPSEEK_API_KEY');
-});
-
-test('getAgentConfig defaults checkout agent to Z.AI GLM-5.1', async () => {
-	const { getAgentConfig } = await loadAgentConfigModule();
-	delete process.env.CHECKOUT_AGENT_MODEL;
-
+	const bridge = getAgentConfig('bridge');
+	const risk = getAgentConfig('risk');
+	const monitor = getAgentConfig('monitor');
 	const checkout = getAgentConfig('checkout');
 
-	assert.equal(checkout.provider, 'zai');
-	assert.equal(checkout.model, 'glm-5.1');
-	assert.equal(checkout.apiKeyEnv, 'ZAI_API_KEY');
+	for (const config of [main, earning, bridge, risk, monitor, checkout]) {
+		assert.equal(config.provider, 'zai');
+		assert.equal(config.model, 'glm-5.1');
+		assert.equal(config.apiKeyEnv, 'ZAI_API_KEY');
+	}
 });
 
 test('getAgentConfig maps explicit zai provider config to ZAI_API_KEY', async () => {

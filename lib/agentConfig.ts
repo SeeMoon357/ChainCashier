@@ -26,41 +26,41 @@ export interface AgentModelConfig {
 const DEFAULT_CONFIGS: Record<string, AgentModelConfig> = {
 	main: {
 		name: 'Main Agent (Intent Router)',
-		model: 'deepseek-v4-pro',
-		provider: 'deepseek',
-		apiKeyEnv: 'DEEPSEEK_API_KEY',
+		model: 'glm-5.1',
+		provider: 'zai',
+		apiKeyEnv: 'ZAI_API_KEY',
 		temperature: 0.7,
 		maxTokens: 2000,
 	},
 	earning: {
 		name: 'Earning Agent',
-		model: 'deepseek-v4-pro',
-		provider: 'deepseek',
-		apiKeyEnv: 'DEEPSEEK_API_KEY',
+		model: 'glm-5.1',
+		provider: 'zai',
+		apiKeyEnv: 'ZAI_API_KEY',
 		temperature: 0.3,
 		maxTokens: 2000,
 	},
 	bridge: {
 		name: 'Bridge Agent',
-		model: 'deepseek-v4-pro',
-		provider: 'deepseek',
-		apiKeyEnv: 'DEEPSEEK_API_KEY',
+		model: 'glm-5.1',
+		provider: 'zai',
+		apiKeyEnv: 'ZAI_API_KEY',
 		temperature: 0.5,
 		maxTokens: 1500,
 	},
 	risk: {
 		name: 'Risk Agent',
-		model: 'deepseek-v4-pro',
-		provider: 'deepseek',
-		apiKeyEnv: 'DEEPSEEK_API_KEY',
+		model: 'glm-5.1',
+		provider: 'zai',
+		apiKeyEnv: 'ZAI_API_KEY',
 		temperature: 0.3,
 		maxTokens: 1500,
 	},
 	monitor: {
 		name: 'Monitor Agent',
-		model: 'deepseek-v4-pro',
-		provider: 'deepseek',
-		apiKeyEnv: 'DEEPSEEK_API_KEY',
+		model: 'glm-5.1',
+		provider: 'zai',
+		apiKeyEnv: 'ZAI_API_KEY',
 		temperature: 0.5,
 		maxTokens: 1000,
 	},
@@ -113,7 +113,7 @@ function parseModelString(
 		};
 	}
 
-	let provider: SupportedModel = 'deepseek';
+	let provider: SupportedModel = 'zai';
 	if (modelString.startsWith('gpt-')) provider = 'openai';
 	else if (modelString.startsWith('glm-5.1')) provider = 'zai';
 	else if (modelString.includes('glm')) provider = 'zhipu';
