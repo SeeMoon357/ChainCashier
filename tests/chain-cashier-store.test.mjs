@@ -33,3 +33,28 @@ test('chain cashier store persists invoices to a local JSON file', async () => {
 
 	delete process.env.CHAINCASHIER_STORE_PATH;
 });
+
+test('chain cashier store keeps invoices in memory when disk persistence fails', async () => {
+	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chaincashier-store-'));
+	process.env.CHAINCASHIER_STORE_PATH = tempDir;
+
+	const cashier = await loadTsModule('./lib/chainCashier.ts');
+	const store = await loadTsModule('./lib/chainCashierStore.ts');
+	const invoice = cashier.createInvoiceFromAgentOutput({
+		merchantAddress: '0x1111111111111111111111111111111111111111',
+		origin: 'http://localhost:3000',
+		agentOutput: {
+			invoice: {
+				receiveChain: 'Base',
+				receiveToken: 'USDC',
+				receiveAmount: '0.01',
+			},
+		},
+		now: 2,
+	});
+
+	assert.doesNotThrow(() => store.saveInvoice(invoice));
+	assert.equal(store.getInvoice(invoice.invoiceId)?.invoiceId, invoice.invoiceId);
+
+	delete process.env.CHAINCASHIER_STORE_PATH;
+});

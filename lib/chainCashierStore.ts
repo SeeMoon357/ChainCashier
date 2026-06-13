@@ -1,5 +1,6 @@
 import type { Invoice } from './chainCashier';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const invoices = new Map<string, Invoice>();
@@ -7,7 +8,9 @@ const invoices = new Map<string, Invoice>();
 function getStorePath(): string {
 	return (
 		process.env.CHAINCASHIER_STORE_PATH ??
-		'.chaincashier-data/invoices.json'
+		(process.env.VERCEL
+			? path.join(os.tmpdir(), 'chaincashier', 'invoices.json')
+			: '.chaincashier-data/invoices.json')
 	);
 }
 
@@ -34,12 +37,17 @@ function loadFromDisk() {
 
 function persistToDisk() {
 	const storePath = getStorePath();
-	fs.mkdirSync(path.dirname(storePath), { recursive: true });
-	fs.writeFileSync(
-		storePath,
-		JSON.stringify(Array.from(invoices.values()), null, 2),
-		'utf8',
-	);
+	try {
+		fs.mkdirSync(path.dirname(storePath), { recursive: true });
+		fs.writeFileSync(
+			storePath,
+			JSON.stringify(Array.from(invoices.values()), null, 2),
+			'utf8',
+		);
+	} catch {
+		// Serverless filesystems can be read-only. Keep the in-memory invoice so
+		// the current demo flow can continue instead of failing the request.
+	}
 }
 
 export function saveInvoice(invoice: Invoice): Invoice {
