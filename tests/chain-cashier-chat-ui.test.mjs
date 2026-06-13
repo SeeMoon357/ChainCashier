@@ -18,3 +18,8 @@ test('payer quote updates do not attach a duplicate invoice card to the assistan
 test('streaming indicator uses an animated spinner', () => {
 	assert.match(source, /<CircleDashed className='h-3 w-3 animate-spin' \/>/);
 });
+
+test('empty streaming assistant bubbles keep showing a loading indicator even when reasoning exists', () => {
+	assert.match(source, /message\.streaming \? \(\s*<LoadingIndicator \/>/s);
+	assert.match(source, /message\.streaming && message\.content \? \(/);
+});

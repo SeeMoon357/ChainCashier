@@ -1190,7 +1190,7 @@ export default function ChainCashierChat({
 									) : null}
 									{message.content ? (
 										<Markdown text={message.content} />
-									) : message.streaming && !message.reasoning ? (
+									) : message.streaming ? (
 										<LoadingIndicator />
 									) : null}
 									{message.invoice ? <InvoiceCard invoice={message.invoice} /> : null}
