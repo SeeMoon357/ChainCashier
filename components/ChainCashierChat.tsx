@@ -232,12 +232,26 @@ function ReceiptCard({ value }: { value: unknown }) {
 	);
 }
 
+function LoadingIndicator() {
+	return (
+		<div className='inline-flex items-center gap-2 text-xs text-slate-500'>
+			<CircleDashed className='h-3 w-3 animate-spin' />
+			<span>Thinking</span>
+			<span className='flex gap-0.5' aria-hidden='true'>
+				<span className='animate-bounce'>.</span>
+				<span className='animate-bounce [animation-delay:120ms]'>.</span>
+				<span className='animate-bounce [animation-delay:240ms]'>.</span>
+			</span>
+		</div>
+	);
+}
+
 function StatusIcon({ status }: { status: FlowStep['status'] }) {
 	if (status === 'done') return <CheckCircle2 className='h-4 w-4 text-emerald-600' />;
 	if (status === 'failed') return <AlertTriangle className='h-4 w-4 text-rose-600' />;
 	return (
 		<CircleDashed
-			className={status === 'running' ? 'h-4 w-4 text-sky-600' : 'h-4 w-4 text-slate-400'}
+			className={status === 'running' ? 'h-4 w-4 animate-spin text-sky-600' : 'h-4 w-4 text-slate-400'}
 		/>
 	);
 }
@@ -358,6 +372,7 @@ export default function ChainCashierChat({
 	const textTimerRef = useRef<number | null>(null);
 	const completedMessageIdsRef = useRef(new Set<string>());
 	const introducedInvoiceIdsRef = useRef(new Set<string>());
+	const syncedInvoiceEventKeysRef = useRef(new Set<string>());
 	const deferredPatchesRef = useRef(new Map<string, Partial<ChatMessage>[]>());
 
 	const title = role === 'merchant' ? 'Merchant Chat' : 'Payer Checkout Chat';
@@ -643,6 +658,129 @@ export default function ChainCashierChat({
 	}, [enqueueAssistantPatch, enqueueAssistantText, invoice, markAssistantDone, role]);
 
 	useEffect(() => {
+		if (role !== 'merchant' || !invoice?.invoiceId) return;
+		if (invoice.receipt || invoice.status === 'FAILED') return;
+
+		let cancelled = false;
+		const invoiceId = invoice.invoiceId;
+		const recordOnce = (key: string, event: AgentRunEvent) => {
+			const scopedKey = `${invoiceId}:${key}`;
+			if (syncedInvoiceEventKeysRef.current.has(scopedKey)) return;
+			syncedInvoiceEventKeysRef.current.add(scopedKey);
+			recordRunEvent(event);
+		};
+
+		const syncMerchantInvoice = async () => {
+			const response = await fetch(`/api/payments/status?invoiceId=${invoiceId}`);
+			const payload = await response.json();
+			if (cancelled || !payload.success || !payload.invoice) return;
+
+			const remoteInvoice = payload.invoice as Invoice;
+			const changed =
+				remoteInvoice.status !== invoice.status ||
+				remoteInvoice.sourceTxHash !== invoice.sourceTxHash ||
+				remoteInvoice.destinationTxHash !== invoice.destinationTxHash ||
+				remoteInvoice.receipt?.receiptHash !== invoice.receipt?.receiptHash;
+			if (!changed) return;
+
+			setInvoice(remoteInvoice);
+			saveInvoiceToBrowser(remoteInvoice);
+			setSteps((current) => {
+				let next = current;
+				if (remoteInvoice.sourceChain) {
+					next = updateStep(next, 'source', 'done', `${remoteInvoice.sourceChain} USDC`);
+				}
+				if (remoteInvoice.quote) {
+					next = updateStep(next, 'quote', 'done', remoteInvoice.quote.routeSummary);
+					next = updateStep(next, 'validate', 'done', 'Quote passed locked invoice safety checks.');
+					next = updateStep(next, 'explain', 'done', 'Payer covers cross-chain cost and confirms only in wallet.');
+				}
+				if (remoteInvoice.sourceTxHash) {
+					next = updateStep(next, 'wallet', 'done', 'Payer confirmed in wallet.');
+					next = updateStep(next, 'submitted', 'done', `Source transaction saved: ${remoteInvoice.sourceTxHash}`);
+					next = updateStep(next, 'status', 'running', 'Tracking LI.FI route status.');
+				}
+				if (remoteInvoice.receipt) {
+					next = updateStep(next, 'status', 'done', 'LI.FI reported the route as completed.');
+					next = updateStep(next, 'receipt', 'done', 'Receipt JSON is available.');
+				} else if (remoteInvoice.status === 'FAILED') {
+					next = updateStep(next, 'status', 'failed', 'LI.FI reported failed/refunded status.');
+				}
+				return next;
+			});
+
+			if (remoteInvoice.sourceTxHash) {
+				recordOnce(
+					'submitted',
+					createRunEvent({
+						step: 'status',
+						status: 'running',
+						summary: 'Merchant view detected payer wallet submission.',
+						tool: 'Invoice status sync',
+						inputSummary: remoteInvoice.sourceTxHash,
+					}),
+				);
+			}
+			if (remoteInvoice.receipt || remoteInvoice.status === 'FAILED') {
+				recordOnce(
+					'terminal',
+					createRunEvent({
+						step: 'status',
+						status: remoteInvoice.receipt ? 'completed' : 'failed',
+						summary: remoteInvoice.receipt
+							? 'Merchant view synced completed payment status.'
+							: 'Merchant view synced failed or refunded status.',
+						tool: 'LI.FI status',
+						outputSummary: remoteInvoice.lifiStatus ?? remoteInvoice.status,
+					}),
+				);
+				if (remoteInvoice.receipt) {
+					recordOnce(
+						'receipt',
+						createRunEvent({
+							step: 'receipt',
+							status: 'completed',
+							summary: 'Merchant view synced generated receipt evidence.',
+							artifact: 'receipt',
+						}),
+					);
+				}
+
+				const terminalMessageKey = `${invoiceId}:terminal-message`;
+				if (!syncedInvoiceEventKeysRef.current.has(terminalMessageKey)) {
+					syncedInvoiceEventKeysRef.current.add(terminalMessageKey);
+					setMessages((current) => [
+						...current,
+						{
+							id: `ai-${++messageIdRef.current}`,
+							role: 'assistant',
+							content: remoteInvoice.receipt
+								? 'Payment completed. I synced the payer checkout status and generated the receipt.'
+								: 'Payment failed or was refunded. I synced the current evidence for troubleshooting.',
+							receipt: remoteInvoice.receipt,
+						},
+					]);
+				}
+			}
+		};
+
+		void syncMerchantInvoice();
+		const timer = window.setInterval(() => void syncMerchantInvoice(), 5000);
+		return () => {
+			cancelled = true;
+			window.clearInterval(timer);
+		};
+	}, [
+		invoice?.destinationTxHash,
+		invoice?.invoiceId,
+		invoice?.receipt,
+		invoice?.sourceTxHash,
+		invoice?.status,
+		recordRunEvent,
+		role,
+	]);
+
+	useEffect(() => {
 		if (!sourceTxHash || !invoice?.invoiceId) return;
 		const timer = window.setInterval(async () => {
 			const response = await fetch(`/api/payments/status?invoiceId=${invoice.invoiceId}`);
@@ -777,7 +915,9 @@ export default function ChainCashierChat({
 					if (payload.type === 'invoice') {
 						setInvoice(payload.invoice);
 						saveInvoiceToBrowser(payload.invoice);
-						deferAssistantPatch(aiId, { invoice: payload.invoice });
+						if (role === 'merchant') {
+							deferAssistantPatch(aiId, { invoice: payload.invoice });
+						}
 						setSteps((current) =>
 							updateStep(
 								updateStep(
@@ -1048,7 +1188,7 @@ export default function ChainCashierChat({
 											<pre className='mt-2 whitespace-pre-wrap'>{message.reasoning}</pre>
 										</details>
 									) : null}
-									<Markdown text={message.content || (message.streaming ? '...' : '')} />
+									{message.content ? <Markdown text={message.content} /> : message.streaming ? <LoadingIndicator /> : null}
 									{message.invoice ? <InvoiceCard invoice={message.invoice} /> : null}
 									{message.source ? (
 										<div className='mt-3 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800'>
@@ -1068,7 +1208,7 @@ export default function ChainCashierChat({
 									) : null}
 									{message.streaming ? (
 										<div className='mt-2 inline-flex items-center gap-2 text-xs text-slate-500'>
-											<CircleDashed className='h-3 w-3' />
+											<CircleDashed className='h-3 w-3 animate-spin' />
 											streaming
 										</div>
 									) : null}
