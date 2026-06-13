@@ -1188,7 +1188,11 @@ export default function ChainCashierChat({
 											<pre className='mt-2 whitespace-pre-wrap'>{message.reasoning}</pre>
 										</details>
 									) : null}
-									{message.content ? <Markdown text={message.content} /> : message.streaming ? <LoadingIndicator /> : null}
+									{message.content ? (
+										<Markdown text={message.content} />
+									) : message.streaming && !message.reasoning ? (
+										<LoadingIndicator />
+									) : null}
 									{message.invoice ? <InvoiceCard invoice={message.invoice} /> : null}
 									{message.source ? (
 										<div className='mt-3 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800'>
@@ -1206,7 +1210,7 @@ export default function ChainCashierChat({
 									{message.receipt || message.supportPackage ? (
 										<ReceiptCard value={{ receipt: message.receipt, supportPackage: message.supportPackage }} />
 									) : null}
-									{message.streaming ? (
+									{message.streaming && message.content ? (
 										<div className='mt-2 inline-flex items-center gap-2 text-xs text-slate-500'>
 											<CircleDashed className='h-3 w-3 animate-spin' />
 											streaming
