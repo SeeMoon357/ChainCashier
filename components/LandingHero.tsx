@@ -120,6 +120,12 @@ export default function LandingHero() {
 							开始创建账单
 							<ArrowRight className='h-5 w-5 transition-transform group-hover:translate-x-1' />
 						</Link>
+						<Link
+							href='/pitch/'
+							className='inline-flex items-center justify-center rounded-full border border-white/70 bg-white/70 px-7 py-4 text-base font-semibold text-gray-700 shadow-glass backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:text-gray-950 active:scale-95 dark:border-white/10 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15 md:text-lg'
+						>
+							查看 Pitch Deck
+						</Link>
 						<div className='flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400'>
 							{['GLM-5.1 Agent', 'LI.FI Fastest Routing', 'Verifiable Receipt'].map((tag) => (
 								<span
