@@ -6,6 +6,7 @@ import path from 'node:path';
 const source = fs.readFileSync(path.resolve('./components/LandingHero.tsx'), 'utf8');
 const pitchRoute = fs.readFileSync(path.resolve('./app/pitch/route.ts'), 'utf8');
 const pitchHtml = fs.readFileSync(path.resolve('./public/pitch/index.html'), 'utf8');
+const demoVideoCardPath = path.resolve('./components/DemoVideoCard.tsx');
 
 test('home page presents ChainCashier hackathon story and chat entry', () => {
 	assert.match(source, /Chat-to-Pay/);
@@ -25,4 +26,16 @@ test('pitch deck is served from public static files', () => {
 	assert.match(pitchHtml, /src="\/pitch\/2\.jpg"/);
 	assert.match(pitchRoute, /public', 'pitch', 'index\.html/);
 	assert.match(pitchRoute, /content-type': 'text\/html; charset=utf-8/);
+});
+
+test('home page presents a playable two minute demo video card', () => {
+	assert.ok(fs.existsSync(path.resolve('./public/demo/chaincashier-demo.mp4')));
+	assert.ok(fs.existsSync(demoVideoCardPath));
+	const demoVideoCard = fs.readFileSync(demoVideoCardPath, 'utf8');
+
+	assert.match(source, /DemoVideoCard/);
+	assert.match(demoVideoCard, /2-min Demo Video/);
+	assert.match(demoVideoCard, /\/demo\/chaincashier-demo\.mp4/);
+	assert.match(demoVideoCard, /controls/);
+	assert.match(demoVideoCard, /autoPlay/);
 });

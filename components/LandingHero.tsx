@@ -12,6 +12,7 @@ import {
 	Zap,
 } from 'lucide-react';
 import BackgroundBlobs from './ui/BackgroundBlobs';
+import DemoVideoCard from './DemoVideoCard';
 import GlassIsland from './ui/GlassIsland';
 import { WalletButton } from './WalletConnect';
 
@@ -151,15 +152,7 @@ export default function LandingHero() {
 					</div>
 				</div>
 
-				<div className='group animate-fade-in relative w-full max-w-lg flex-1 lg:max-w-2xl'>
-					<div className='absolute inset-0 rounded-[3rem] bg-blue-100/50 blur-3xl transition-colors duration-700 group-hover:bg-blue-200/60 dark:bg-blue-500/10 dark:group-hover:bg-blue-500/20' />
-					<img
-						src='https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1600&auto=format&fit=crop'
-						alt='ChainCashier cross-chain checkout'
-						className='relative z-10 aspect-[4/3] w-full rounded-[3rem] border-[4px] border-white/50 bg-white object-cover opacity-90 shadow-ambient mix-blend-luminosity transition-transform duration-500 group-hover:scale-[1.03] dark:border-white/10 dark:bg-white/5'
-						referrerPolicy='no-referrer'
-					/>
-				</div>
+				<DemoVideoCard />
 			</section>
 
 			<section className='relative z-10 mx-auto w-full max-w-[1180px] px-6 pb-14'>
