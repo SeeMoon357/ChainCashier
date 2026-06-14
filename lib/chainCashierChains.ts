@@ -10,6 +10,7 @@ export type ChainCashierChainConfig = {
 	label: string;
 	chainId: number;
 	usdcAddress: `0x${string}`;
+	explorerTxBaseUrl: string;
 	aliases: string[];
 };
 
@@ -22,6 +23,7 @@ export const CHAINCASHIER_USDC_CHAINS: Record<
 		label: 'Base',
 		chainId: 8453,
 		usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+		explorerTxBaseUrl: 'https://basescan.org/tx/',
 		aliases: ['base'],
 	},
 	Arbitrum: {
@@ -29,6 +31,7 @@ export const CHAINCASHIER_USDC_CHAINS: Record<
 		label: 'Arbitrum',
 		chainId: 42161,
 		usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+		explorerTxBaseUrl: 'https://arbiscan.io/tx/',
 		aliases: ['arbitrum', 'arb'],
 	},
 	Optimism: {
@@ -36,6 +39,7 @@ export const CHAINCASHIER_USDC_CHAINS: Record<
 		label: 'Optimism',
 		chainId: 10,
 		usdcAddress: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+		explorerTxBaseUrl: 'https://optimistic.etherscan.io/tx/',
 		aliases: ['optimism', 'op', 'op mainnet'],
 	},
 	Polygon: {
@@ -43,6 +47,7 @@ export const CHAINCASHIER_USDC_CHAINS: Record<
 		label: 'Polygon',
 		chainId: 137,
 		usdcAddress: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+		explorerTxBaseUrl: 'https://polygonscan.com/tx/',
 		aliases: ['polygon', 'matic'],
 	},
 };
@@ -99,4 +104,16 @@ export function getChainCashierUsdcAddress(
 	chainId: number,
 ): `0x${string}` | null {
 	return getChainCashierChainById(chainId)?.usdcAddress ?? null;
+}
+
+export function getChainCashierExplorerTxUrl(
+	chainId: number | undefined,
+	txHash: string | undefined,
+): string | null {
+	if (!chainId || !txHash) {
+		return null;
+	}
+
+	const explorerTxBaseUrl = getChainCashierChainById(chainId)?.explorerTxBaseUrl;
+	return explorerTxBaseUrl ? `${explorerTxBaseUrl}${txHash}` : null;
 }

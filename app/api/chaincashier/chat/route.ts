@@ -177,10 +177,10 @@ export async function POST(request: NextRequest) {
 							send,
 							streamResponseText(
 								[
-									'Done. I created the payment invoice.',
-									`Merchant will receive **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**.`,
-									`Payment link: ${createdInvoice.paymentLink}`,
-									'Send this link to the payer. They will choose a supported source chain in the independent checkout chat and confirm payment with their own wallet.',
+									'我已创建收款账单。',
+									`商户将收到 **${createdInvoice.receiveAmount} ${createdInvoice.receiveToken} on ${createdInvoice.receiveChain}**。`,
+									`付款链接：${createdInvoice.paymentLink}`,
+									'你可以把这个链接发给付款人。付款人会在独立 checkout 聊天页里选择来源链，并用自己的钱包确认支付。',
 								].join('\n\n'),
 							),
 						);
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
 						event: createRunEvent({
 							step: 'quote',
 							status: 'completed',
-							summary: 'LI.FI selected the fastest stablecoin route for exact merchant settlement.',
+							summary: 'Agent selected a fast stablecoin route for exact merchant settlement using LI.FI quote data.',
 							tool: 'LI.FI quote/toAmount',
 							outputSummary: quote.routeSummary,
 						}),
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
 					});
 					send({
 						type: 'response',
-						content: `LI.FI 已选择最快的稳定币路线：**${quote.toolName ?? quote.tool ?? 'LI.FI'}**，预估耗时 **${quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s` }**。付款人预计支付 **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**。请检查费用和最低到账金额，然后在钱包中确认。`,
+						content: `Agent 已基于快速稳定币路线策略，结合 LI.FI 报价数据选出当前可执行路线：**${quote.toolName ?? quote.tool ?? 'LI.FI'}**，预估耗时 **${quote.executionDuration == null ? 'n/a' : `${quote.executionDuration}s` }**。付款人预计支付 **${formatUnits(BigInt(quote.estimatedFromAmount), 6)} USDC**。请检查费用和最低到账金额，然后在钱包中确认。`,
 					});
 					send({
 						type: 'response',

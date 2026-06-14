@@ -37,6 +37,28 @@ test('payer checkout user-facing text is localized to Chinese', () => {
 	assert.match(source, /用钱包授权并付款/);
 });
 
+test('merchant invoice and quote responses use Chinese agent-facing copy', () => {
+	assert.doesNotMatch(chatRouteSource, /Done\. I created the payment invoice/);
+	assert.doesNotMatch(chatRouteSource, /LI\.FI 已选择最快的稳定币路线/);
+	assert.match(chatRouteSource, /我已创建收款账单/);
+	assert.match(chatRouteSource, /Agent 已基于快速稳定币路线策略/);
+});
+
+test('invoice card exposes a compact copy payment link button', () => {
+	assert.match(source, /aria-label='复制付款链接'/);
+	assert.match(source, /navigator\.clipboard\.writeText\(invoice\.paymentLink\)/);
+});
+
+test('receipt card exposes scan links and receipt evidence labels', () => {
+	assert.match(source, /getChainCashierExplorerTxUrl/);
+	assert.match(source, /function ReceiptCard\(\{[\s\S]*invoice[\s\S]*\}: \{[\s\S]*invoice\?: Invoice/);
+	assert.match(source, /<ReceiptCard receipt=\{message\.receipt\} supportPackage=\{message\.supportPackage\} invoice=\{message\.invoice\} \/>/);
+	assert.match(source, /付款链交易/);
+	assert.match(source, /收款链交易/);
+	assert.match(source, /LI\.FI 状态/);
+	assert.match(source, /Receipt hash/);
+});
+
 test('long wallet and route evidence wraps inside cards', () => {
 	assert.match(source, /className='rounded-md border border-slate-200 bg-white p-2 break-all'/);
 	assert.match(source, /className='mt-1 break-all text-xs text-slate-500'/);

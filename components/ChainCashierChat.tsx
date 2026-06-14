@@ -14,9 +14,10 @@ import GlassIsland from './ui/GlassIsland';
 import PillComposer from './ui/PillComposer';
 import GradientButton from './ui/GradientButton';
 import SerifHeading from './ui/SerifHeading';
-import type { Invoice, PaymentQuoteSummary, SupportPackage } from '@/lib/chainCashier';
+import type { Invoice, PaymentQuoteSummary, PaymentReceipt, SupportPackage } from '@/lib/chainCashier';
 import type { PayerSourceOption } from '@/lib/chainCashierChat';
 import { getChainCashierWalletChain } from '@/lib/chainCashierWalletChains';
+import { getChainCashierExplorerTxUrl } from '@/lib/chainCashierChains';
 import {
 	buildAgentRunLog,
 	createRunEvent,
@@ -180,19 +181,38 @@ function Markdown({ text }: { text: string }) {
 }
 
 function InvoiceCard({ invoice }: { invoice: Invoice }) {
+	const [copied, setCopied] = useState(false);
+
+	const copyPaymentLink = async () => {
+		await navigator.clipboard.writeText(invoice.paymentLink);
+		setCopied(true);
+		window.setTimeout(() => setCopied(false), 1200);
+	};
+
 	return (
 		<div className='mt-3 rounded-2xl border border-white/70 bg-white/70 p-3 text-sm text-gray-800 shadow-glass backdrop-blur-md break-words'>
 			<div className='font-semibold'>{invoice.invoiceId}</div>
 			<div className='mt-1'>商户收款：{invoice.receiveAmount} {invoice.receiveToken} on {invoice.receiveChain}</div>
 			<div>商户地址：<span className='break-all'>{invoice.merchantAddress}</span></div>
 			<div>费用策略：付款人承担跨链成本</div>
-			<a
-				href={invoice.paymentLink}
-				className='mt-2 inline-flex items-center gap-1 break-all font-medium text-blue-600 underline'
-			>
-				<ExternalLink className='h-4 w-4' />
-				{invoice.paymentLink}
-			</a>
+			<div className='mt-2 flex items-center gap-2'>
+				<a
+					href={invoice.paymentLink}
+					className='inline-flex min-w-0 items-center gap-1 break-all font-medium text-blue-600 underline'
+				>
+					<ExternalLink className='h-4 w-4 shrink-0' />
+					<span className='break-all'>{invoice.paymentLink}</span>
+				</a>
+				<button
+					type='button'
+					aria-label='复制付款链接'
+					title='复制付款链接'
+					onClick={copyPaymentLink}
+					className='inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-white/80 text-blue-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 active:scale-95'
+				>
+					{copied ? <CheckCircle2 className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
+				</button>
+			</div>
 		</div>
 	);
 }
@@ -231,17 +251,69 @@ function QuoteCard({
 	);
 }
 
-function ReceiptCard({ value }: { value: unknown }) {
+function ReceiptCard({
+	receipt,
+	supportPackage,
+	invoice,
+}: {
+	receipt?: unknown;
+	supportPackage?: SupportPackage;
+	invoice?: Invoice;
+}) {
+	const typedReceipt = receipt && typeof receipt === 'object'
+		? receipt as Partial<PaymentReceipt>
+		: undefined;
+	const evidenceInvoice = supportPackage?.evidence.invoice ?? invoice;
+	const sourceTxHash =
+		typedReceipt?.sourceTxHash ?? supportPackage?.sourceTxHash ?? evidenceInvoice?.sourceTxHash;
+	const destinationTxHash =
+		typedReceipt?.destinationTxHash ??
+		supportPackage?.destinationTxHash ??
+		evidenceInvoice?.destinationTxHash;
+	const sourceChainId = typedReceipt?.sourceChainId ?? evidenceInvoice?.sourceChainId;
+	const destinationChainId = typedReceipt?.receiveChainId ?? evidenceInvoice?.receiveChainId;
+	const sourceExplorerUrl = getChainCashierExplorerTxUrl(sourceChainId, sourceTxHash);
+	const destinationExplorerUrl = getChainCashierExplorerTxUrl(destinationChainId, destinationTxHash);
+	const lifiStatus = [
+		typedReceipt?.lifiStatus ?? supportPackage?.lifiStatus ?? evidenceInvoice?.lifiStatus,
+		typedReceipt?.lifiSubstatus ?? supportPackage?.lifiSubstatus ?? evidenceInvoice?.lifiSubstatus,
+	].filter(Boolean).join(' / ');
+	const receiptHash = typedReceipt?.receiptHash ?? evidenceInvoice?.receipt?.receiptHash;
+	const rawEvidence = { receipt, supportPackage, invoice: evidenceInvoice };
+
 	return (
-		<details className='mt-3 rounded-2xl border border-white/70 bg-white/60 p-3 text-sm shadow-glass backdrop-blur-md'>
-			<summary className='flex cursor-pointer items-center gap-2 font-semibold'>
+		<div className='mt-3 rounded-2xl border border-white/70 bg-white/60 p-3 text-sm shadow-glass backdrop-blur-md'>
+			<div className='flex items-center gap-2 font-semibold'>
 				<ReceiptText className='h-4 w-4' />
 				收据 / 支持材料
-			</summary>
-			<pre className='mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-950 p-3 text-xs text-slate-100'>
-				{JSON.stringify(value, null, 2)}
-			</pre>
-		</details>
+			</div>
+			<div className='mt-3 space-y-2 rounded-xl border border-white/70 bg-white/70 p-3 text-xs text-slate-700'>
+				{sourceExplorerUrl ? (
+					<a className='flex items-center gap-2 break-all font-medium text-blue-600 underline' href={sourceExplorerUrl} target='_blank' rel='noreferrer'>
+						<ExternalLink className='h-3.5 w-3.5 shrink-0' />
+						付款链交易：{sourceTxHash}
+					</a>
+				) : sourceTxHash ? (
+					<div className='break-all'>付款链交易：{sourceTxHash}</div>
+				) : null}
+				{destinationExplorerUrl ? (
+					<a className='flex items-center gap-2 break-all font-medium text-blue-600 underline' href={destinationExplorerUrl} target='_blank' rel='noreferrer'>
+						<ExternalLink className='h-3.5 w-3.5 shrink-0' />
+						收款链交易：{destinationTxHash}
+					</a>
+				) : destinationTxHash ? (
+					<div className='break-all'>收款链交易：{destinationTxHash}</div>
+				) : null}
+				<div>LI.FI 状态：{lifiStatus || 'n/a'}</div>
+				{receiptHash ? <div className='break-all'>Receipt hash：{receiptHash}</div> : null}
+			</div>
+			<details className='mt-3'>
+				<summary className='cursor-pointer text-xs font-medium text-slate-600'>查看原始 receipt JSON</summary>
+				<pre className='mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-950 p-3 text-xs text-slate-100'>
+					{JSON.stringify(rawEvidence, null, 2)}
+				</pre>
+			</details>
+		</div>
 	);
 }
 
@@ -388,7 +460,6 @@ export default function ChainCashierChat({
 	const syncedInvoiceEventKeysRef = useRef(new Set<string>());
 	const deferredPatchesRef = useRef(new Map<string, Partial<ChatMessage>[]>());
 
-	const title = role === 'merchant' ? 'Merchant Chat' : 'Payer Checkout Chat';
 	const subtitle =
 		role === 'merchant'
 			? 'Ask the agent to create a locked Base or Arbitrum USDC invoice.'
@@ -1198,7 +1269,6 @@ export default function ChainCashierChat({
 						<GradientButton onClick={() => setInput(starter)} className='mt-10 px-10 py-4 text-lg'>
 							Get Started
 						</GradientButton>
-						<p className='mt-3 text-xs text-gray-400 dark:text-gray-500'>{title}</p>
 					</div>
 				) : (
 					<div ref={scrollRef} className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2'>
@@ -1240,7 +1310,7 @@ export default function ChainCashierChat({
 										/>
 									) : null}
 									{message.receipt || message.supportPackage ? (
-										<ReceiptCard value={{ receipt: message.receipt, supportPackage: message.supportPackage }} />
+										<ReceiptCard receipt={message.receipt} supportPackage={message.supportPackage} invoice={message.invoice} />
 									) : null}
 									{message.streaming && message.content ? (
 										<div className='mt-2 inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400'>
